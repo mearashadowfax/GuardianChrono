@@ -15,8 +15,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
     MessageHandler,
-    CallbackContext,
-)
+    )
 
 # import the Telegram API token from config.py
 from config import TELEGRAM_API_TOKEN
@@ -29,7 +28,7 @@ logging.basicConfig(level=logging.INFO)
 user_timezone = None
 
 
-# this handler responds when the /start command is used for the first time
+# this handler responds when the /start or /help command is used
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
@@ -44,21 +43,28 @@ nlp = spacy.load("en_core_web_sm")
 # identify entities (location, date, time) in user input
 def extract_entities(text):
     doc = nlp(text)
+    entities = {}
     for ent in doc.ents:
         if ent.label_ in ["GPE", "LOC"] and "city" in ent.text.lower():
-            return ent.text.strip()
-    return None
+            entities[ent.label_] = ent.text.strip()
+    return entities
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # get the text from the message sent by the user
     user_text = update.message.text
     # use spaCy to extract the city name from the user's message
-    city_name = extract_city_name(user_text)
-    # call get_user_timezone with the city_name as a parameter
-    timezone_name = await get_user_timezone(update, context, city_name)
-    # reply with the user's timezone
-    await update.message.reply_text(f"Your timezone is {timezone_name}")
+    entities = extract_entities(user_text)
+    if "GPE" in entities:
+        # call get_time_in_city with the city_name as a parameter
+        city_time = await get_time_in_city(update, context, entities["GPE"])
+        # reply with the time in the requested city
+        await update.message.reply_text(f"The time in {entities['GPE']} is {city_time}")
+    else:
+        # handle invalid input
+        await update.message.reply_text(
+            "I'm sorry, I couldn't understand your request."
+        )
 
 
 async def get_user_timezone(
@@ -71,15 +77,21 @@ async def get_user_timezone(
     return timezone_name
 
 
-async def get_time_in_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    geolocator = Nominatim(user_agent="timezone_bot")
-    location = geolocator.geocode(city_name, timeout=10)
-    timezone = get_user_timezone(city_name)
+async def get_time_in_city(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, city_name: str
+):
+    timezone = await get_user_timezone(update, context, city_name)
     city_time = datetime.datetime.now(pytz.timezone(timezone))
     return city_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-async def convert_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def convert_time(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    time: str,
+    from_timezone: str,
+    to_timezone: str,
+):
     from_tz = pytz.timezone(from_timezone)
     to_tz = pytz.timezone(to_timezone)
     from_dt = from_tz.localize(datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S"))
