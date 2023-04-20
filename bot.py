@@ -6,7 +6,6 @@ import datetime
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
 
-
 # import the required Telegram modules
 from telegram import Update
 from telegram.ext import (
@@ -56,56 +55,42 @@ async def extract_entities(text):
 
 
 # handles incoming messages from the user
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # get the text from the message sent by the user
+async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
-    # get the current state from the user's chat data
-    state = context.chat_data.get("state", CITY)
-    # use extract_entities to get the city name and timezone from the user's message
-    entities = await extract_entities(user_text)
-
-    if state == CITY and "GPE" in entities:
-        # call get_time_in_city with the city name as a parameter
-        timezone = await get_user_timezone(update, context, city_name=entities["GPE"])
-        if timezone is None:
-            await update.message.reply_text(
-                f"I'm sorry, I couldn't recognize {entities['GPE']} as a city.")
-        else:
-            city_time = datetime.datetime.now(pytz.timezone(timezone))
-            await update.message.reply_text(
-                f"The time in {entities['GPE']} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
-                f"another city, please enter its name.")
-            # change the current state to NEW_CITY to indicate that we're waiting for a new city name
-            context.chat_data["state"] = NEW_CITY
-    elif state == NEW_CITY:
-        # call get_time_in_city with the new city name as a parameter
-        timezone = await get_user_timezone(update, context, city_name=user_text)
-        if timezone is None:
-            await update.message.reply_text(
-                f"I'm sorry, I couldn't recognize {user_text} as a city.")
-        else:
-            city_time = datetime.datetime.now(pytz.timezone(timezone))
-            await update.message.reply_text(
-                f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
-                f"another city, please enter its name.")
+    timezone = await get_user_timezone(update, context, user_text)
+    if timezone is None:
+        await update.message.reply_text(
+            f"I'm sorry, I couldn't recognize {user_text} as a city."
+        )
     else:
-        timezone = await get_user_timezone(update, context, user_text)
-        if timezone is None:
-            await update.message.reply_text(
-                "I'm sorry, I couldn't understand your request.")
-        else:
-            city_time = datetime.datetime.now(pytz.timezone(timezone))
-            await update.message.reply_text(
-                f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
-                f"another city, please enter its name.")
+        city_time = datetime.datetime.now(pytz.timezone(timezone))
+        await update.message.reply_text(
+            f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
+            f"another city, please enter its name."
+        )
+        # change the current state to NEW_CITY to indicate that we're waiting for a new city name
+        return NEW_CITY
 
-            # change the current state to NEW_CITY to indicate that we're waiting for a new city name
-            context.chat_data["state"] = NEW_CITY
+
+async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    timezone = await get_user_timezone(update, context, user_text)
+    if timezone is None:
+        await update.message.reply_text(
+            f"I'm sorry, I couldn't recognize {user_text} as a city."
+        )
+    else:
+        city_time = datetime.datetime.now(pytz.timezone(timezone))
+        await update.message.reply_text(
+            f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
+            f"another city, please enter its name."
+        )
+    # stay in the NEW_CITY state
+    return NEW_CITY
 
 
 async def get_user_timezone(
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE, city_name: str
+    update: Update, context: ContextTypes.DEFAULT_TYPE, city_name: str
 ):
     try:
         geolocator = Nominatim(user_agent="timezone_bot")
@@ -149,12 +134,12 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CITY: [MessageHandler(filters.TEXT, handle_message)],
+            CITY: [MessageHandler(filters.TEXT, handle_city)],
+            NEW_CITY: [MessageHandler(filters.TEXT, handle_new_city)],
         },
         fallbacks=[],
     )
     application.add_handler(conv_handler)
-    application.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
     # start the Telegram bot
     application.run_polling()
