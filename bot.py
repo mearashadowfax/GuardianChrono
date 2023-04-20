@@ -1,10 +1,11 @@
-import datetime
 import json
-from geopy.geocoders import Nominatim
-import logging
-from timezonefinder import TimezoneFinder
 import pytz
 import spacy
+import logging
+import datetime
+from geopy.geocoders import Nominatim
+from timezonefinder import TimezoneFinder
+
 
 # import the required Telegram modules
 from telegram import Update
@@ -25,10 +26,9 @@ TELEGRAM_API_TOKEN = TELEGRAM_API_TOKEN
 # enable logging
 logging.basicConfig(level=logging.INFO)
 
-user_timezone = None
-
 # load pre-trained spacy model
 nlp = spacy.load("en_core_web_sm")
+
 # declare constants for ConversationHandler
 (CITY,) = range(1)
 
@@ -45,12 +45,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CITY
 
 
-# this handler is called when the user enters a city name
-async def handle_city(update, context):
-    await handle_message(update, context)
-    return ConversationHandler.END
-
-
 # extracts entities (location, date, time) in the user input using spaCy
 async def extract_entities(text):
     doc = nlp(text)
@@ -61,12 +55,6 @@ async def extract_entities(text):
     return entities
 
 
-async def contains_city(update):
-    user_text = await update.message.text
-    entities = await extract_entities(user_text)
-    return "GPE" in entities
-
-
 # handles incoming messages from the user
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # get the text from the message sent by the user
@@ -75,16 +63,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     entities = await extract_entities(user_text)
     if "GPE" in entities:
         # call get_time_in_city with the city name as a parameter
-        city_time = await get_time_in_city(update, context, entities["GPE"])
-        if city_time is None:
+        timezone = await get_user_timezone(update, context, city_name=entities["GPE"])
+        if timezone is None:
             # handle case where city cannot be recognized
             await update.message.reply_text(
                 f"I'm sorry, I couldn't recognize {entities['GPE']} as a city."
             )
         else:
+            # get the current time in the requested city
+            city_time = datetime.datetime.now(pytz.timezone(timezone))
             # reply with the time in the requested city
             await update.message.reply_text(
-                f"The time in {entities['GPE']} is {city_time}"
+                f"The time in {entities['GPE']} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}"
             )
     else:
         # use get_user_timezone to get the timezone for the user input
@@ -101,10 +91,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}"
             )
-
-
-# this handler will trigger on any message containing a city name
-city_handler = MessageHandler(filters.TEXT & filters.COMMAND, handle_message)
 
 
 # gets the timezone for the given city name
@@ -145,13 +131,6 @@ async def convert_time(
     return to_dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Sorry, I didn't understand that command.",
-    )
-
-
 def main():
     # set Telegram bot
     application = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
@@ -160,17 +139,12 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CITY: [MessageHandler(filters.TEXT, handle_city)],
+            CITY: [MessageHandler(filters.TEXT, handle_message)],
         },
-        fallbacks=[MessageHandler(filters.COMMAND, unknown)],
+        fallbacks=[],
     )
     application.add_handler(conv_handler)
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("timezone", get_user_timezone))
-    application.add_handler(CommandHandler("city", get_time_in_city))
-    application.add_handler(CommandHandler("convert", convert_time))
     application.add_handler(MessageHandler(filters.COMMAND, handle_message))
-    application.add_handler(MessageHandler(filters.COMMAND, unknown))
 
     # start the Telegram bot
     application.run_polling()
