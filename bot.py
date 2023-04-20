@@ -32,98 +32,69 @@ nlp = spacy.load("en_core_web_sm")
 CITY, NEW_CITY = range(2)
 
 
-# this handler responds when the /start command is used
+# define function to start the conversation
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
     welcome_message = strings["welcome_message"]
     await update.message.reply_text(welcome_message)
     # ask the user for a city name
-    await update.message.reply_text("Please enter a city name.")
+    await update.message.reply_text("Please enter a city name:")
     # return CITY state to indicate that the next message should be a city name
     return CITY
 
 
-# extracts entities (location, date, time) in the user input using spaCy
-async def extract_entities(text):
-    doc = nlp(text)
-    entities = {}
-    for ent in doc.ents:
-        if ent.label_ in ["GPE", "LOC"] and "city" in ent.text.lower():
-            entities[ent.label_] = ent.text.strip()
-    return entities
-
-
-# handles incoming messages from the user
+# define function to handle the city message
 async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
-    timezone = await get_user_timezone(update, context, user_text)
+    timezone = get_timezone_from_location(user_text)
     if timezone is None:
         await update.message.reply_text(
-            f"I'm sorry, I couldn't recognize {user_text} as a city."
+            "Sorry, I couldn't recognize that city. Please enter another city name."
         )
+        return CITY
     else:
-        city_time = datetime.datetime.now(pytz.timezone(timezone))
+        city_time = get_current_time_in_timezone(timezone)
         await update.message.reply_text(
-            f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
-            f"another city, please enter its name."
+            f"The time in {user_text} is {city_time}.\n\nIf you want to check another city, "
+            f"please enter its name."
         )
         # change the current state to NEW_CITY to indicate that we're waiting for a new city name
         return NEW_CITY
 
 
-async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# define function to handle new city messages
+async def handle_new_city(update, context):
     user_text = update.message.text
-    timezone = await get_user_timezone(update, context, user_text)
+    timezone = get_timezone_from_location(user_text)
     if timezone is None:
         await update.message.reply_text(
-            f"I'm sorry, I couldn't recognize {user_text} as a city."
+            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another "
+            f"city name."
         )
     else:
-        city_time = datetime.datetime.now(pytz.timezone(timezone))
-        await update.message.reply_text(
-            f"The time in {user_text} is {city_time.strftime('%Y-%m-%d %H:%M:%S')}.\n\nIf you want to check "
-            f"another city, please enter its name."
-        )
+        city_time = get_current_time_in_timezone(timezone)
+        await update.message.reply_text(f"The time in {user_text} is {city_time}.")
     # stay in the NEW_CITY state
     return NEW_CITY
 
 
-async def get_user_timezone(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, city_name: str
-):
-    try:
-        geolocator = Nominatim(user_agent="timezone_bot")
-        location = geolocator.geocode(city_name, timeout=10)
-        tf = TimezoneFinder()
-        timezone_name = tf.timezone_at(lng=location.longitude, lat=location.latitude)
-        return timezone_name
-    except:
+# define function to retrieve the time zone from location data
+def get_timezone_from_location(city_name):
+    geolocator = Nominatim(user_agent="timezone_bot")
+    location = geolocator.geocode(city_name, timeout=10)
+    if location is None:
         return None
+    tf = TimezoneFinder()
+    timezone_name = tf.timezone_at(lng=location.longitude, lat=location.latitude)
+    return timezone_name
 
 
-#  gets the current time in the given city and returns it as a string
-async def get_time_in_city(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, city_name: str
-):
-    timezone = await get_user_timezone(update, context, city_name=city_name)
-    city_time = datetime.datetime.now(pytz.timezone(timezone))
+# define function to get the current time in a time zone
+def get_current_time_in_timezone(timezone_name):
+    timezone = pytz.timezone(timezone_name)
+    city_time = datetime.datetime.now(timezone)
     return city_time.strftime("%Y-%m-%d %H:%M:%S")
-
-
-# converts time from one timezone to another and returns it as a string
-async def convert_time(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    time: str,
-    from_timezone: str,
-    to_timezone: str,
-):
-    from_tz = pytz.timezone(from_timezone)
-    to_tz = pytz.timezone(to_timezone)
-    from_dt = from_tz.localize(datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S"))
-    to_dt = from_dt.astimezone(to_tz)
-    return to_dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def main():
