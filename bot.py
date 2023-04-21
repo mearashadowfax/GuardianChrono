@@ -4,7 +4,6 @@ import spacy
 import logging
 import datetime
 from geopy.geocoders import Nominatim
-from telegram.constants import ParseMode
 from timezonefinder import TimezoneFinder
 from typing import Union
 
@@ -17,8 +16,7 @@ from telegram.ext import (
     filters,
     MessageHandler,
     ConversationHandler,
-    CallbackContext,
-    CallbackQueryHandler
+    CallbackQueryHandler,
 )
 
 # import the Telegram API token from config.py
@@ -35,12 +33,35 @@ nlp = spacy.load("en_core_web_sm")
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE = range(4)
 
+reply_markup = [
+    [
+        InlineKeyboardButton("Convert", callback_data="conversion"),
+        InlineKeyboardButton("Difference", callback_data="difference"),
+    ],
+    [
+        InlineKeyboardButton("New City", callback_data="new_city"),
+        InlineKeyboardButton("Help", callback_data="help"),
+    ],
+]
+markup = InlineKeyboardMarkup(reply_markup)
+
+
+def generate_markup(num_buttons):
+    if num_buttons == 3:
+        # return a markup with only first three buttons
+        return InlineKeyboardMarkup(
+            [reply_markup[0][:num_buttons]] + [reply_markup[1][:1]]
+        )
+    else:
+        # return the full markup with four buttons
+        return InlineKeyboardMarkup(reply_markup)
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
     welcome_message = strings["welcome_message"]
-    await update.message.reply_text(welcome_message, parse_mode='HTML')
+    await update.message.reply_text(welcome_message, parse_mode="HTML")
     await update.message.reply_text("Please enter a city name:")
     return CITY
 
@@ -55,22 +76,16 @@ async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return CITY
     else:
-        context.user_data['timezone_name'] = timezone_name
-        context.user_data['city_name'] = city_name
+        context.user_data["timezone_name"] = timezone_name
+        context.user_data["city_name"] = city_name
         city_time = get_current_time_in_timezone(timezone_name)
         timezone_abbr, timezone_offset_formatted = get_timezone_details(timezone_name)
         await update.message.reply_text(
             f"The time in {city_name} is {city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
             "\n\nWhat do you want to do next?",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(text='Convert', callback_data='conversion'),
-                InlineKeyboardButton(text='Difference', callback_data='difference')
-            ], [
-                InlineKeyboardButton(text='New City', callback_data='new_city'),
-                InlineKeyboardButton(text='Help', callback_data='help')
-            ]])
+            reply_markup=generate_markup(4),
         )
-        return CONVERSION
+        return CITY
 
 
 async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,41 +98,43 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return NEW_CITY
     else:
-        context.user_data['timezone_name'] = timezone_name
-        context.user_data['city_name'] = city_name
+        context.user_data["timezone_name"] = timezone_name
+        context.user_data["city_name"] = city_name
         city_time = get_current_time_in_timezone(timezone_name)
         timezone_abbr, timezone_offset_formatted = get_timezone_details(timezone_name)
         await update.message.reply_text(
             f"The time in {city_name} is {city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(text='Convert', callback_data='conversion'),
-                InlineKeyboardButton(text='Difference', callback_data='difference')
-            ], [
-                InlineKeyboardButton(text='New City', callback_data='new_city'),
-                InlineKeyboardButton(text='Help', callback_data='help')
-            ]])
+            reply_markup=generate_markup(4),
         )
-        return CONVERSION
+        return NEW_CITY
 
 
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    if query.data == 'new_city':
+    if query.data == "new_city":
         await query.message.reply_text("Please enter a new city:")
         return NEW_CITY
-    elif query.data == 'conversion':
-        await query.message.reply_text("Please enter the time you want to convert using the format 'hh:mm AM/PM City'.")
+    elif query.data == "conversion":
+        await query.message.reply_text(
+            "Please enter the time you want to convert using the format 'hh:mm AM/PM City'."
+        )
         return CONVERSION
-    elif query.data == 'difference':
-        await query.message.reply_text("Please enter another city to compare the time difference.")
+    elif query.data == "difference":
+        await query.message.reply_text(
+            "Please enter another city to compare the time difference."
+        )
         return DIFFERENCE
-    elif query.data == 'help':
+    elif query.data == "help":
         with open("en_strings.json", "r") as f:
             strings = json.load(f)
         description = strings["description"]
-        await query.message.reply_text(description, parse_mode='HTML')
-        return ConversationHandler.END
+        await query.message.reply_text(
+            description,
+            parse_mode="HTML",
+            reply_markup=generate_markup(3),
+        )
+        return NEW_CITY
 
 
 async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -125,7 +142,9 @@ async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     time, city_name = extract_time_and_city(user_text)
 
     if time is None or city_name is None:
-        await update.message.reply_text("Sorry, the input format is invalid. Please try again.")
+        await update.message.reply_text(
+            "Sorry, the input format is invalid. Please try again."
+        )
         return CONVERSION
     timezone_name = get_timezone_from_location(city_name)
     if timezone_name is None:
@@ -134,21 +153,17 @@ async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return CONVERSION
     else:
-        city_time = convert_time(time, timezone_name, context.user_data['timezone_name'])
-        context.user_data['conversion_time'] = city_time
+        city_time = convert_time(
+            time, timezone_name, context.user_data["timezone_name"]
+        )
+        context.user_data["conversion_time"] = city_time
         await update.message.reply_text(
             f"The time in {context.user_data['city_name']}({city_name}) is {time}."
             f"\nThe time in your timezone({context.user_data['timezone_name']}) is {city_time}."
             "\n\nDo you want to perform another operation?",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(text='Convert', callback_data='conversion'),
-                InlineKeyboardButton(text='Difference', callback_data='difference')
-            ], [
-                InlineKeyboardButton(text='New City', callback_data='new_city'),
-                InlineKeyboardButton(text='Help', callback_data='help')
-            ]])
+            reply_markup=generate_markup(4),
         )
-        return CONVERSION
+        return NEW_CITY
 
 
 async def handle_difference(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -162,29 +177,25 @@ async def handle_difference(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return DIFFERENCE
     else:
         city_time = get_current_time_in_timezone(timezone_name)
-        context.user_data['difference_city_name'] = city_name
-        context.user_data['difference_timezone_name'] = timezone_name
-        context.user_data['difference_time'] = city_time
+        context.user_data["difference_city_name"] = city_name
+        context.user_data["difference_timezone_name"] = timezone_name
+        context.user_data["difference_time"] = city_time
         await handle_difference_result(update, context)
 
 
 async def handle_difference_result(update, context):
-    timezone_name = context.user_data['difference_timezone_name']
-    city_name_1 = context.user_data['city_name']
-    city_name_2 = context.user_data['difference_city_name']
+    timezone_name = context.user_data["difference_timezone_name"]
+    city_name_1 = context.user_data["city_name"]
+    city_name_2 = context.user_data["difference_city_name"]
 
-    difference_hours = get_time_difference_in_hours(context.user_data['difference_timezone_name'], timezone_name)
+    difference_hours = get_time_difference_in_hours(
+        context.user_data["difference_timezone_name"], timezone_name
+    )
     if difference_hours is None:
         await update.message.reply_text(
             f"Sorry, I could not determine the time difference between {city_name_1} and {city_name_2}."
             "\n\nDo you want to perform another operation?",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(text='Convert', callback_data='conversion'),
-                InlineKeyboardButton(text='Difference', callback_data='difference')
-            ], [
-                InlineKeyboardButton(text='New City', callback_data='new_city'),
-                InlineKeyboardButton(text='Help', callback_data='help')
-            ]])
+            reply_markup=generate_markup(4),
         )
         return CONVERSION
 
@@ -198,22 +209,16 @@ async def handle_difference_result(update, context):
     await update.message.reply_text(
         f"The time difference between {city_name_1} and {city_name_2} is {difference_text}."
         "\n\nDo you want to perform another operation?",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton(text='Convert', callback_data='conversion'),
-            InlineKeyboardButton(text='Difference', callback_data='difference')
-        ], [
-            InlineKeyboardButton(text='New City', callback_data='new_city'),
-            InlineKeyboardButton(text='Help', callback_data='help')
-        ]])
+        reply_markup=generate_markup(4),
     )
 
-    return CONVERSION
+    return NEW_CITY
 
 
 def extract_time_and_city(user_text):
     try:
-        time, city_name = user_text.split(' ', 1)
-        if not time.endswith(('am', 'pm')):
+        time, city_name = user_text.split(" ", 1)
+        if not time.endswith(("am", "pm")):
             return None, None
         return time, city_name
     except ValueError:
@@ -223,7 +228,7 @@ def extract_time_and_city(user_text):
 def convert_time(time_string, from_timezone_name, to_timezone_name):
     from_timezone = pytz.timezone(from_timezone_name)
     to_timezone = pytz.timezone(to_timezone_name)
-    time_obj = datetime.datetime.strptime(time_string, '%I:%M %p')
+    time_obj = datetime.datetime.strptime(time_string, "%I:%M %p")
     loc_dt = from_timezone.localize(time_obj)
     utc_time = loc_dt.astimezone(pytz.utc)
     dest_dt = utc_time.astimezone(to_timezone)
@@ -231,13 +236,17 @@ def convert_time(time_string, from_timezone_name, to_timezone_name):
 
 
 def get_timezone_details(timezone_name):
-    timezone_offset = datetime.datetime.now(pytz.timezone(timezone_name)).strftime('%z')
+    timezone_offset = datetime.datetime.now(pytz.timezone(timezone_name)).strftime("%z")
     timezone_offset_formatted = f"{timezone_offset[:-2]}:{timezone_offset[-2:]}"
-    timezone_abbr = pytz.timezone(timezone_name).localize(datetime.datetime.now()).strftime('%Z')
+    timezone_abbr = (
+        pytz.timezone(timezone_name).localize(datetime.datetime.now()).strftime("%Z")
+    )
     return timezone_abbr, timezone_offset_formatted
 
 
-def get_time_difference_in_hours(timezone_1: str, timezone_2: str) -> Union[float, int, None]:
+def get_time_difference_in_hours(
+    timezone_1: str, timezone_2: str
+) -> Union[float, int, None]:
     tz1 = pytz.timezone(timezone_1)
     tz2 = pytz.timezone(timezone_2)
     time1 = datetime.datetime.now(tz1)
@@ -283,12 +292,22 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CITY: [MessageHandler(filters.TEXT, handle_city)],
-            NEW_CITY: [MessageHandler(filters.TEXT, handle_new_city)],
-            CONVERSION: [MessageHandler(filters.TEXT, handle_conversion)],
-            DIFFERENCE: [MessageHandler(filters.TEXT, handle_difference)]
+            CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_city)],
+            NEW_CITY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_new_city)
+            ],
+            CONVERSION: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_conversion)
+            ],
+            DIFFERENCE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_difference)
+            ],
         },
-        fallbacks=[CallbackQueryHandler(handle_callback_query, pattern="^(conversion|difference|new_city|help)$")],
+        fallbacks=[
+            CallbackQueryHandler(
+                handle_callback_query, pattern="^(conversion|difference|new_city|help)$"
+            )
+        ],
     )
     application.add_handler(conv_handler)
 
