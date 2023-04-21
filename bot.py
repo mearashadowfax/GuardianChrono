@@ -72,7 +72,7 @@ async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timezone_name = get_timezone_from_location(user_text)
     if timezone_name is None:
         await update.message.reply_text(
-            "Sorry, I couldn't recognize that city. Please enter another city name."
+            "Sorry, I couldn't recognize that city. Please enter another city name:"
         )
         return CITY
     else:
@@ -94,7 +94,7 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timezone_name = get_timezone_from_location(user_text)
     if timezone_name is None:
         await update.message.reply_text(
-            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name."
+            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name:"
         )
         return NEW_CITY
     else:
@@ -117,12 +117,12 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         return NEW_CITY
     elif query.data == "conversion":
         await query.message.reply_text(
-            "Please enter the time you want to convert using the format 'hh:mm AM/PM City'."
+            "Please enter the time you want to convert using the format 'hh:mm AM/PM City':"
         )
         return CONVERSION
     elif query.data == "difference":
         await query.message.reply_text(
-            "Please enter another city to compare the time difference."
+            "Please enter another city to compare the time difference:"
         )
         return DIFFERENCE
     elif query.data == "help":
@@ -172,7 +172,7 @@ async def handle_difference(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timezone_name = get_timezone_from_location(user_text)
     if timezone_name is None:
         await update.message.reply_text(
-            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name."
+            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name:"
         )
         return DIFFERENCE
     else:
@@ -187,31 +187,27 @@ async def handle_difference_result(update, context):
     timezone_name = context.user_data["difference_timezone_name"]
     city_name_1 = context.user_data["city_name"]
     city_name_2 = context.user_data["difference_city_name"]
-
     difference_hours = get_time_difference_in_hours(
         context.user_data["difference_timezone_name"], timezone_name
     )
     if difference_hours is None:
         await update.message.reply_text(
-            f"Sorry, I could not determine the time difference between {city_name_1} and {city_name_2}."
-            "\n\nDo you want to perform another operation?",
+            f"Sorry, I could not determine the time difference between {city_name_1} and {city_name_2}.\n\nDo you "
+            f"want to perform another operation?",
             reply_markup=generate_markup(4),
         )
         return CONVERSION
-
     if abs(difference_hours) < 0.01:
         difference_text = "at the same time"
     elif difference_hours > 0:
         difference_text = f"{difference_hours:.1f} hours ahead"
     else:
         difference_text = f"{-difference_hours:.1f} hours behind"
-
     await update.message.reply_text(
-        f"The time difference between {city_name_1} and {city_name_2} is {difference_text}."
-        "\n\nDo you want to perform another operation?",
+        f"The time difference between {context.user_data['city_name']} and {city_name_2} is {difference_text}.\n\nDo you want to perform "
+        f"another operation?",
         reply_markup=generate_markup(4),
     )
-
     return NEW_CITY
 
 
@@ -244,27 +240,18 @@ def get_timezone_details(timezone_name):
     return timezone_abbr, timezone_offset_formatted
 
 
-def get_time_difference_in_hours(
-    timezone_1: str, timezone_2: str
-) -> Union[float, int, None]:
+def get_time_difference_in_hours(timezone_1: str, timezone_2: str) -> float:
     tz1 = pytz.timezone(timezone_1)
     tz2 = pytz.timezone(timezone_2)
     time1 = datetime.datetime.now(tz1)
     time2 = datetime.datetime.now(tz2)
+    print("time1:", time1)
+    print("time2:", time2)
     difference = time2 - time1
     if difference.total_seconds() == 0:
-        return None
+        return 0.0
     else:
-        hours, remainder = divmod(abs(difference).seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        difference_formatted = f"{abs(hours)} hours"
-        if minutes > 0:
-            difference_formatted += f" {minutes} minutes"
-        if difference.total_seconds() < 0:
-            difference_formatted += " behind"
-        elif difference.total_seconds() > 0:
-            difference_formatted += " ahead"
-        return int(round(abs(difference).total_seconds() / 3600))
+        return round((difference.total_seconds() / 3600.0), 2)
 
 
 def get_timezone_from_location(city_name):
