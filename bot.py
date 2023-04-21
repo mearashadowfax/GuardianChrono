@@ -5,7 +5,7 @@ import logging
 import datetime
 from geopy.geocoders import Nominatim
 from timezonefinder import TimezoneFinder
-from typing import Union
+from decimal import Decimal
 
 # import the required Telegram modules
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -66,6 +66,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CITY
 
 
+# define function to handle city messages
 async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     city_name = user_text.title() if user_text.islower() else user_text
@@ -80,8 +81,14 @@ async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["city_name"] = city_name
         city_time = get_current_time_in_timezone(timezone_name)
         timezone_abbr, timezone_offset_formatted = get_timezone_details(timezone_name)
+        context.user_data["timezone_abbr"] = timezone_abbr
+        context.user_data["timezone_offset_formatted"] = timezone_offset_formatted
+        city_time_obj = datetime.datetime.strptime(
+            city_time, "%H:%M:%S %d.%m.%Y"
+        ).replace(microsecond=0)
+        formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
         await update.message.reply_text(
-            f"The time in {city_name} is {city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+            f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
             "\n\nWhat do you want to do next?",
             reply_markup=generate_markup(4),
         )
@@ -102,8 +109,15 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["city_name"] = city_name
         city_time = get_current_time_in_timezone(timezone_name)
         timezone_abbr, timezone_offset_formatted = get_timezone_details(timezone_name)
+        context.user_data["timezone_abbr"] = timezone_abbr
+        context.user_data["timezone_offset_formatted"] = timezone_offset_formatted
+        city_time_obj = datetime.datetime.strptime(
+            city_time, "%H:%M:%S %d.%m.%Y"
+        ).replace(microsecond=0)
+        formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
         await update.message.reply_text(
-            f"The time in {city_name} is {city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})",
+            f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+            "\n\nWhat do you want to do next?",
             reply_markup=generate_markup(4),
         )
         return NEW_CITY
@@ -169,26 +183,26 @@ async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_difference(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     city_name = user_text.title() if user_text.islower() else user_text
-    timezone_name = get_timezone_from_location(user_text)
-    if timezone_name is None:
-        await update.message.reply_text(
-            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name:"
-        )
-        return DIFFERENCE
-    else:
+    try:
+        timezone_name = get_timezone_from_location(user_text)
         city_time = get_current_time_in_timezone(timezone_name)
         context.user_data["difference_city_name"] = city_name
         context.user_data["difference_timezone_name"] = timezone_name
         context.user_data["difference_time"] = city_time
         await handle_difference_result(update, context)
+    except ValueError:
+        await update.message.reply_text(
+            f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name:"
+        )
+        return DIFFERENCE
 
 
 async def handle_difference_result(update, context):
-    timezone_name = context.user_data["difference_timezone_name"]
     city_name_1 = context.user_data["city_name"]
     city_name_2 = context.user_data["difference_city_name"]
     difference_hours = get_time_difference_in_hours(
-        context.user_data["difference_timezone_name"], timezone_name
+        context.user_data["difference_timezone_name"],
+        context.user_data["difference_timezone_name"],
     )
     if difference_hours is None:
         await update.message.reply_text(
@@ -197,12 +211,13 @@ async def handle_difference_result(update, context):
             reply_markup=generate_markup(4),
         )
         return CONVERSION
-    if abs(difference_hours) < 0.01:
+    abs_difference_hours = abs(difference_hours)
+    if abs_difference_hours < 0.01:
         difference_text = "at the same time"
     elif difference_hours > 0:
-        difference_text = f"{difference_hours:.1f} hours ahead"
+        difference_text = f"{Decimal(abs_difference_hours):.2f} hours ahead"
     else:
-        difference_text = f"{-difference_hours:.1f} hours behind"
+        difference_text = f"{Decimal(abs_difference_hours):.2f} hours behind"
     await update.message.reply_text(
         f"The time difference between {context.user_data['city_name']} and {city_name_2} is {difference_text}.\n\nDo you want to perform "
         f"another operation?",
@@ -245,15 +260,14 @@ def get_time_difference_in_hours(timezone_1: str, timezone_2: str) -> float:
     tz2 = pytz.timezone(timezone_2)
     time1 = datetime.datetime.now(tz1)
     time2 = datetime.datetime.now(tz2)
-    print("time1:", time1)
-    print("time2:", time2)
-    difference = time2 - time1
-    if difference.total_seconds() == 0:
-        return 0.0
-    else:
-        return round((difference.total_seconds() / 3600.0), 2)
+    print(f"time1 ({timezone_1}): {time1}")
+    print(f"time2 ({timezone_2}): {time2}")
+    difference = (time2 - time1).total_seconds() / 3600.0
+    print(difference)
+    return round(difference, 2)
 
 
+# define function to get timezone from the location
 def get_timezone_from_location(city_name):
     geolocator = Nominatim(user_agent="timezone_bot")
     location = geolocator.geocode(city_name, timeout=10)
@@ -267,7 +281,7 @@ def get_timezone_from_location(city_name):
 # define function to get the current time in a time zone
 def get_current_time_in_timezone(timezone_name):
     timezone = pytz.timezone(timezone_name)
-    city_time = datetime.datetime.now(timezone).strftime("%Y-%m-%d %H:%M:%S")
+    city_time = datetime.datetime.now(timezone).strftime("%H:%M:%S %d.%m.%Y")
     return city_time
 
 
