@@ -1,5 +1,5 @@
 # GuardianChrono Telegram Bot
-GuardianChrono is a Telegram bot project that utilizes Python and the `python-telegram-bot` library to provide users with a range of useful timezone-related functions. With GuardianChrono, you can easily find the timezone of any city around the world, convert timezones, and even calculate the time difference between cities. To get started, simply send the name of a city you're interested in and the bot will reply with its timezone. 
+GuardianChrono is a simple Telegram bot project that utilizes Python and the `python-telegram-bot` library to provide users with a range of useful timezone-related functions. With GuardianChrono, you can easily find the timezone of any city around the world, convert timezones, and even calculate the time difference between cities. To get started, simply send the name of a city you're interested in and the bot will reply with the current local time and timezone there.
 
 ## Getting started
 To get started with this project, you'll need to do the following:  
@@ -22,11 +22,13 @@ python bot.py
 You can then interact with the bot in a Telegram chat.
 
 ## Usage
-This bot has the following functions:
-1. Get user's timezone: Send the name of a city to the bot and it will return the name of the timezone for that city. For example, send "New York" to the bot and it will reply with "America/New_York".
-2. Convert time to user's timezone: Send a time and the name of the city to the bot and it will convert the time to the user's local timezone. For example, send "12:00 pm New York" to the bot and it will reply with the time in the user's local timezone.
-3. Find the local time of a city: Send the name of a city to the bot and it will reply with the current time in the local timezone of that city. For example, send "Paris" to the bot and it will reply with the current time in Paris.
+This Telegram bot offers the following features:  
+1. Find local time: Send the name of a city and receive the current time in that city. 
+2. Get city timezone: Send the name of a city and receive the name of the timezone for that city.
+3. Convert time: Send a time and the name of a city to convert the time to the user's local timezone.
+4. Compare time difference: Easily compare the time difference between two cities.
 
+To use any of these features, simply tap the corresponding button. The bot will provide a quick and easy way to access time zone information.
 ## Contributing
 If you'd like to contribute to this project, feel free to fork the repository and submit a pull request. You can also create an issue to report bugs or suggest new features.
 
