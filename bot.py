@@ -1,11 +1,16 @@
-import json
-import pytz
-import spacy
-import logging
-import datetime
-from geopy.geocoders import Nominatim
-from timezonefinder import TimezoneFinder
-from decimal import Decimal
+# imports required packages and libraries for the chatbot
+import json  # to work with JSON files
+import pytz  # to work with time zones in Python
+import spacy  # to work with natural language processing
+import logging  # to log messages to the console or a file
+import datetime  # to work with dates and times in Python
+from geopy.geocoders import (
+    Nominatim,
+)  # to retrieve geographical coordinates from a location name
+from timezonefinder import (
+    TimezoneFinder,
+)  # to work with time zones based on geographical location
+from decimal import Decimal  # to work with decimal numbers.
 
 # import the required Telegram modules
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -26,13 +31,11 @@ TELEGRAM_API_TOKEN = TELEGRAM_API_TOKEN
 
 # enable logging
 logging.basicConfig(level=logging.INFO)
-
 # load pre-trained spacy model
 nlp = spacy.load("en_core_web_sm")
-
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE = range(4)
-
+# specify the reply markup layout
 reply_markup = [
     [
         InlineKeyboardButton("Convert", callback_data="conversion"),
@@ -43,21 +46,24 @@ reply_markup = [
         InlineKeyboardButton("Help", callback_data="help"),
     ],
 ]
+# combine the buttons into a markup layout
 markup = InlineKeyboardMarkup(reply_markup)
 
 
+# function to create markup with specific number of buttons
 def generate_markup(num_buttons):
     if num_buttons == 3:
-        # return a markup with only first three buttons
+        # return a markup with the first three buttons only
         return InlineKeyboardMarkup(
             [reply_markup[0][:num_buttons]] + [reply_markup[1][:1]]
         )
     else:
-        # return the full markup with four buttons
+        # return the full markup with all four buttons
         return InlineKeyboardMarkup(reply_markup)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# handler function for /start command
+async def start(update, context):
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
     welcome_message = strings["welcome_message"]
@@ -66,26 +72,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CITY
 
 
-# define function to handle city messages
+# handler function for user input city name
 async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # get user's city name input
     user_text = update.message.text
+    # format the user input (capitalize first letter of each word)
     city_name = user_text.title() if user_text.islower() else user_text
+    # get the timezone name of the city from user input
     timezone_name = get_timezone_from_location(user_text)
+    # if the detected timezone name is none, prompt the user to enter another city name
     if timezone_name is None:
         await update.message.reply_text(
             "Sorry, I couldn't recognize that city. Please enter another city name:"
         )
         return
+    # store user's timezone name and city name as context user_data
     context.user_data["timezone_name"] = timezone_name
     context.user_data["city_name"] = city_name
+    # get the current time in the timezone of the user input city
     city_time = get_current_time_in_timezone(timezone_name)
+    # get the timezone abbreviation and formatted offset
     timezone_abbr, timezone_offset_formatted = get_timezone_details(timezone_name)
     context.user_data["timezone_abbr"] = timezone_abbr
     context.user_data["timezone_offset_formatted"] = timezone_offset_formatted
+    # convert the city time string into a datetime object and format it
     city_time_obj = datetime.datetime.strptime(city_time, "%H:%M:%S %d.%m.%Y").replace(
         microsecond=0
     )
     formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
+    # send the current time, timezone abbreviation and offset to the user and propose next actions
     await update.message.reply_text(
         f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
         "\n\nWhat do you want to do next?",
@@ -93,6 +108,7 @@ async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# handler function for when 'New City' button is pressed
 async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     city_name = user_text.title() if user_text.islower() else user_text
@@ -117,10 +133,12 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f" ({timezone_offset_formatted})",
         reply_markup=generate_markup(4),
     )
+    # switch the conversation context to 'NEW_CITY'
     return NEW_CITY
 
 
-async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_callback_query(update, context):
+    # retrieve the callback query object from the Update object
     query = update.callback_query
     await query.answer()
     if query.data == "new_city":
@@ -152,7 +170,7 @@ async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return NEW_CITY
 
 
-async def get_time_difference(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_time_difference(update, context):
     user_text = update.message.text
     city_name = user_text.title() if user_text.islower() else user_text
     try:
