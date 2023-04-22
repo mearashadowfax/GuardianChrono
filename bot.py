@@ -16,7 +16,7 @@ from telegram.ext import (
     filters,
     MessageHandler,
     ConversationHandler,
-    CallbackQueryHandler,
+    CallbackQueryHandler
 )
 
 # import the Telegram API token from config.py
@@ -116,8 +116,7 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ).replace(microsecond=0)
         formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
         await update.message.reply_text(
-            f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
-            "\n\nWhat do you want to do next?",
+            f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})",
             reply_markup=generate_markup(4),
         )
         return NEW_CITY
@@ -219,7 +218,8 @@ async def handle_difference_result(update, context):
     else:
         difference_text = f"{Decimal(abs_difference_hours):.2f} hours behind"
     await update.message.reply_text(
-        f"The time difference between {context.user_data['city_name']} and {city_name_2} is {difference_text}.\n\nDo you want to perform "
+        f"The time difference between {context.user_data['city_name']} and {city_name_2} is {difference_text}.\n\nDo "
+        f"you want to perform"
         f"another operation?",
         reply_markup=generate_markup(4),
     )
