@@ -10,14 +10,14 @@ pip install python-telegram-bot
 ```
 3. Download the spaCy model for your preferred language. For example, if you want to detect city names in English text, you can download the "en_core_web_sm" model:
 ```
-python -m spacy download en_core_web_sm
+python3 -m spacy download en_core_web_sm
 ```
 4. Clone this repository and navigate to the project directory:
 5. Create a new Telegram Bot and get a token. You can follow the instructions [here](https://core.telegram.org/bots#how-do-i-create-a-bot).
 6. Add your Telegram Bot token to the `config.py` file.
 7. Run the bot using the following command:
 ```
-python bot.py
+python3 bot.py
 ```
 You can then interact with the bot in a Telegram chat.
 
