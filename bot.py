@@ -1,4 +1,5 @@
-# imports required packages and libraries for the chatbot
+# imports required packages and libraries for the bot
+import asyncio  # for asynchronous programming
 import json  # to work with JSON files
 import pytz  # to work with time zones in Python
 import spacy  # to work with natural language processing
@@ -10,9 +11,11 @@ from geopy.geocoders import (
 from timezonefinder import (
     TimezoneFinder,
 )  # to work with time zones based on geographical location
-from decimal import Decimal  # to work with decimal numbers.
+from decimal import Decimal  # to work with decimal numbers
+from functools import wraps  # to use function decorators
 
 # import the required Telegram modules
+from telegram.constants import ChatAction
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     CommandHandler,
@@ -50,6 +53,28 @@ reply_markup = [
 markup = InlineKeyboardMarkup(reply_markup)
 
 
+# define the send_action decorator
+def send_action(action, delay=1):
+    def decorator(func):
+        @wraps(func)
+        async def command_func(update, context, *args, **kwargs):
+            await context.bot.send_chat_action(
+                chat_id=update.effective_message.chat_id, action=action
+            )
+            await asyncio.sleep(delay)  # wait for the specified delay time
+            return await func(update, context, *args, **kwargs)
+
+        return command_func
+
+    return decorator
+
+
+# set the aliases with custom delays
+send_typing_action = send_action(
+    ChatAction.TYPING, delay=1
+)  # change the delay time as needed
+
+
 # function to create markup with specific number of buttons
 def generate_markup(num_buttons):
     if num_buttons == 3:
@@ -71,7 +96,8 @@ async def start(update, context):
     await update.message.reply_text("Please enter a city name:")
     return CITY
 
-
+# send a typing indicator in the chat
+@send_typing_action
 # handler function for user input city name
 async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # get user's city name input
@@ -107,7 +133,8 @@ async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=generate_markup(4),
     )
 
-
+# send a typing indicator in the chat
+@send_typing_action
 # handler function for when 'New City' button is pressed
 async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
@@ -166,8 +193,7 @@ async def handle_callback_query(update, context):
         return NEW_CITY
 
 
-async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    return NEW_CITY
+# async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_time_difference(update, context):
@@ -186,7 +212,8 @@ async def get_time_difference(update, context):
         )
         return
 
-
+# send a typing indicator in the chat
+@send_typing_action
 async def calculate_time_difference(update, context):
     city_name_1 = context.user_data["city_name"]
     city_name_2 = context.user_data["difference_city_name"]
@@ -213,14 +240,14 @@ async def calculate_time_difference(update, context):
         )
     elif time_difference.total_seconds() > 0:
         difference_text = (
-            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-            + " hours behind"
+                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+                + " hours behind"
         )
         message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
     else:
         difference_text = (
-            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-            + " hours ahead"
+                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+                + " hours ahead"
         )
         message = (
             f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
@@ -285,7 +312,7 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_new_city)
             ],
             CONVERSION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_conversion)
+                # MessageHandler(filters.TEXT & ~filters.COMMAND, handle_conversion)
             ],
             DIFFERENCE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_time_difference)
