@@ -192,32 +192,48 @@ async def calculate_time_difference(update, context):
     city_name_2 = context.user_data["difference_city_name"]
     timezone_name_1 = context.user_data["timezone_name"]
     timezone_name_2 = context.user_data["difference_timezone_name"]
-    city_time_1 = get_current_time_in_timezone(timezone_name_1)
-    city_time_2 = get_current_time_in_timezone(timezone_name_2)
-    datetime_format = "%H:%M:%S %d.%m.%Y"
-    # Get timezone object for each city
-    city_time_obj_1 = datetime.datetime.strptime(city_time_1, datetime_format)
-    city_time_obj_2 = datetime.datetime.strptime(city_time_2, datetime_format)
-    # Calculate timezone difference
-    time_difference = city_time_obj_2 - city_time_obj_1
-    # Convert timezone difference to hours
-    time_difference_hours = time_difference.total_seconds() / 3600
+
+    # get time in UTC for both cities
+    utc_time_1 = get_current_utc_time(timezone_name_1)
+    utc_time_2 = get_current_utc_time(timezone_name_2)
+
+    # convert timezone-aware datetime objects to naive datetime objects
+    naive_time_1 = utc_time_1.replace(tzinfo=None)
+    naive_time_2 = utc_time_2.replace(tzinfo=None)
+
+    # calculate timezone difference
+    time_difference = naive_time_2 - naive_time_1
+    # convert timezone difference to hours
+    time_difference_hours = abs(time_difference.total_seconds() / 3600)
+
+    # return time difference to the user
     if time_difference_hours < 0.01:
-        message = f"There is no time difference between {city_name_1} and {city_name_2}."
-    else:
-        if time_difference_hours > 0:
-            difference_text = f"{Decimal(time_difference_hours):.2f}".replace('.', ':') + " hours ahead"
-            message = f"The time in {city_name_1} is {difference_text} of {city_name_2} time."
-        else:
-            difference_text = f"{Decimal(abs(time_difference_hours)):.2f}".replace('.', ':') + " hours behind"
-            message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
-    await update.message.reply_text(
-            message,
-            reply_markup=generate_markup(4),
+        message = (
+            f"There is no time difference between {city_name_1} and {city_name_2}."
         )
+    elif time_difference.total_seconds() > 0:
+        difference_text = (
+            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+            + " hours behind"
+        )
+        message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
+    else:
+        difference_text = (
+            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+            + " hours ahead"
+        )
+        message = (
+            f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
+        )
+    await update.message.reply_text(
+        message,
+        reply_markup=generate_markup(4),
+    )
     return NEW_CITY
 
 
+# function to get timezone details
+# given a timezone name, return its offset from UTC and abbreviation
 def get_timezone_details(timezone_name):
     timezone_offset = datetime.datetime.now(pytz.timezone(timezone_name)).strftime("%z")
     timezone_offset_formatted = f"{timezone_offset[:-2]}:{timezone_offset[-2:]}"
@@ -227,7 +243,8 @@ def get_timezone_details(timezone_name):
     return timezone_abbr, timezone_offset_formatted
 
 
-# define function to get timezone from the location
+# function to get timezone from location
+# given a city name, return its timezone name
 def get_timezone_from_location(city_name):
     geolocator = Nominatim(user_agent="timezone_bot")
     location = geolocator.geocode(city_name, timeout=10)
@@ -238,7 +255,17 @@ def get_timezone_from_location(city_name):
     return timezone_name
 
 
-# define function to get the current time in a time zone
+# function to get the current UTC time in a timezone
+# given a timezone name, return the current UTC time
+def get_current_utc_time(timezone_name):
+    timezone = pytz.timezone(timezone_name)
+    current_datetime = timezone.localize(datetime.datetime.now())
+    utc_time = current_datetime.astimezone(pytz.utc)
+    return utc_time.replace(tzinfo=None)
+
+
+# function to get the current time in a timezone
+# given a timezone name, return the current time in the specified timezone as a formatted string
 def get_current_time_in_timezone(timezone_name):
     timezone = pytz.timezone(timezone_name)
     city_time = datetime.datetime.now(timezone).strftime("%H:%M:%S %d.%m.%Y")
