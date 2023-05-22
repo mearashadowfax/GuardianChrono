@@ -195,20 +195,26 @@ async def calculate_time_difference(update, context):
     city_time_1 = get_current_time_in_timezone(timezone_name_1)
     city_time_2 = get_current_time_in_timezone(timezone_name_2)
     datetime_format = "%H:%M:%S %d.%m.%Y"
+    # Get timezone object for each city
     city_time_obj_1 = datetime.datetime.strptime(city_time_1, datetime_format)
     city_time_obj_2 = datetime.datetime.strptime(city_time_2, datetime_format)
+    # Calculate timezone difference
     time_difference = city_time_obj_2 - city_time_obj_1
+    # Convert timezone difference to hours
     time_difference_hours = time_difference.total_seconds() / 3600
     if time_difference_hours < 0.01:
-        difference_text = "at the same time"
-    elif time_difference_hours > 0:
-        difference_text = f"{Decimal(time_difference_hours):.2f} hours ahead"
+        message = f"There is no time difference between {city_name_1} and {city_name_2}."
     else:
-        difference_text = f"{Decimal(abs(time_difference_hours)):.2f} hours behind"
+        if time_difference_hours > 0:
+            difference_text = f"{Decimal(time_difference_hours):.2f}".replace('.', ':') + " hours ahead"
+            message = f"The time in {city_name_1} is {difference_text} of {city_name_2} time."
+        else:
+            difference_text = f"{Decimal(abs(time_difference_hours)):.2f}".replace('.', ':') + " hours behind"
+            message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
     await update.message.reply_text(
-        f"The time difference between {city_name_1} and {city_name_2} is {difference_text}.",
-        reply_markup=generate_markup(4),
-    )
+            message,
+            reply_markup=generate_markup(4),
+        )
     return NEW_CITY
 
 
