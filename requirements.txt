@@ -1,5 +1,5 @@
 python_telegram_bot==20.1
-pytz~=2022.1
+pytz~=2023.3
 spacy~=3.5.2
 geopy~=2.3.0
 timezonefinder~=6.2.0
