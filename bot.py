@@ -212,7 +212,7 @@ async def handle_conversion(update, context):
     context.user_data["initial_city_name"] = user_input
     # ask user which time they want to convert from
     await update.message.reply_text(
-        "Please enter the time you want to convert using the format 'hh:mm AM/PM City'"
+        "Please enter the time you want to convert using the format 'HH:MM AM/PM City'"
     )
     return TIME
 
@@ -220,20 +220,18 @@ async def handle_conversion(update, context):
 # send a typing indicator in the chat
 @send_typing_action
 async def handle_time(update, context):
-    user_input = update.message.text
+    user_input = update.message.text.lower()
     initial_city_name = context.user_data.get("initial_city_name")
 
+    # Extract time and city from user input using spaCy NLP
     doc = nlp(user_input)
 
-    # Extract time and city from user input using spaCy NLP
-    time_string = None
-    conversion_city_name = None
-
-    for token in doc.ents:
-        if token.label_ == "TIME":
-            time_string = token.text
-        elif token.label_ == "GPE":
-            conversion_city_name = token.text
+    time_string = next(
+        (token.text for token in doc.ents if token.label_ == "TIME"), None
+    )
+    conversion_city_name = next(
+        (token.text for token in doc.ents if token.label_ == "GPE"), None
+    )
 
     # Make sure both time and conversion city are present
     if not time_string or not conversion_city_name:
@@ -270,7 +268,6 @@ async def handle_time(update, context):
     initial_datetime = conversion_datetime.astimezone(pytz.timezone(initial_timezone))
 
     # Format the time strings
-    conversion_time_string = conversion_datetime.strftime("%I:%M %p")
     initial_time_string = initial_datetime.strftime("%I:%M %p")
 
     response = f"The time in {initial_city_name} is {initial_time_string}."
