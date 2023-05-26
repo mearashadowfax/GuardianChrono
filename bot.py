@@ -1,18 +1,18 @@
-# imports required packages and libraries for the bot
-import asyncio  # for asynchronous programming
-import json  # to work with JSON files
-import pytz  # to work with time zones in Python
-import spacy  # to work with natural language processing
-import logging  # to log messages to the console or a file
-import datetime  # to work with dates and times in Python
-from geopy.geocoders import (
-    Nominatim,
-)  # to retrieve geographical coordinates from a location name
-from timezonefinder import (
-    TimezoneFinder,
-)  # to work with time zones based on geographical location
-from decimal import Decimal  # to work with decimal numbers
-from functools import wraps  # to use function decorators
+# Standard Library Imports
+import asyncio  # Asynchronous programming support
+import json  # JSON serialization and deserialization
+import logging  # Logging utility
+import datetime  # Date and time manipulation
+from decimal import Decimal  # Decimal arithmetic
+from functools import wraps  # Function decorator utility
+import random  # Random number generation
+
+# Third-Party Imports
+import pytz  # Timezone manipulation
+import spacy  # Natural language processing
+import dateparser
+from geopy.geocoders import Nominatim  # Geocoding service
+from timezonefinder import TimezoneFinder  # Timezone lookup
 
 # import the required Telegram modules
 from telegram.constants import ChatAction
@@ -30,14 +30,19 @@ from telegram.ext import (
 # import the Telegram API token from config.py
 from config import TELEGRAM_API_TOKEN
 
-TELEGRAM_API_TOKEN = TELEGRAM_API_TOKEN
-
 # enable logging
 logging.basicConfig(level=logging.INFO)
+
 # load pre-trained spacy model
 nlp = spacy.load("en_core_web_sm")
+
+# Geocoding service
+geolocator = Nominatim(user_agent="timezone_converter")
+timezone_finder = TimezoneFinder()
+
 # declare constants for ConversationHandler
-CITY, NEW_CITY, CONVERSION, DIFFERENCE = range(4)
+CITY, NEW_CITY, CONVERSION, DIFFERENCE, TIME = range(5)
+
 # specify the reply markup layout
 reply_markup = [
     [
@@ -96,6 +101,7 @@ async def start(update, context):
     await update.message.reply_text("Please enter a city name:")
     return CITY
 
+
 # send a typing indicator in the chat
 @send_typing_action
 # handler function for user input city name
@@ -133,6 +139,7 @@ async def handle_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=generate_markup(4),
     )
 
+
 # send a typing indicator in the chat
 @send_typing_action
 # handler function for when 'New City' button is pressed
@@ -155,9 +162,11 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         microsecond=0
     )
     formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
+    reply1 = f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+    reply2 = f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+    reply = random.choice([reply1, reply2])
     await update.message.reply_text(
-        f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr}"
-        f" ({timezone_offset_formatted})",
+        reply,
         reply_markup=generate_markup(4),
     )
     # switch the conversation context to 'NEW_CITY'
@@ -172,9 +181,11 @@ async def handle_callback_query(update, context):
         await query.message.reply_text("Please enter a new city:")
         return NEW_CITY
     elif query.data == "conversion":
-        await query.message.reply_text(
-            "Please enter the time you want to convert using the format 'hh:mm AM/PM City':"
-        )
+        messages = [
+            "What city would you like to convert the time to?",
+            "Please enter the city you want to convert the time to:",
+        ]
+        await query.message.reply_text(random.choice(messages))
         return CONVERSION
     elif query.data == "difference":
         await query.message.reply_text(
@@ -193,7 +204,82 @@ async def handle_callback_query(update, context):
         return NEW_CITY
 
 
-# async def handle_conversion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# send a typing indicator in the chat
+@send_typing_action
+async def handle_conversion(update, context):
+    user_input = update.message.text
+    # store user's city name
+    context.user_data["initial_city_name"] = user_input
+    # ask user which time they want to convert from
+    await update.message.reply_text(
+        "Please enter the time you want to convert using the format 'hh:mm AM/PM City'"
+    )
+    return TIME
+
+
+# send a typing indicator in the chat
+@send_typing_action
+async def handle_time(update, context):
+    user_input = update.message.text
+    initial_city_name = context.user_data.get("initial_city_name")
+
+    doc = nlp(user_input)
+
+    # Extract time and city from user input using spaCy NLP
+    time_string = None
+    conversion_city_name = None
+
+    for token in doc.ents:
+        if token.label_ == "TIME":
+            time_string = token.text
+        elif token.label_ == "GPE":
+            conversion_city_name = token.text
+
+    # Make sure both time and conversion city are present
+    if not time_string or not conversion_city_name:
+        await update.message.reply_text(
+            "Sorry, I couldn't recognize the time and city. Please try again with a valid format."
+        )
+        return
+
+    # Parse the datetime from the time string using dateparser
+    parsed_datetime = dateparser.parse(time_string)
+
+    # Make sure datetime parsing was successful
+    if not parsed_datetime:
+        await update.message.reply_text(
+            "Sorry, I couldn't parse the time. Please try again with a valid format."
+        )
+        return
+
+    # Get the initial timezone and conversion timezone
+    initial_timezone = get_timezone_from_location(initial_city_name)
+    conversion_timezone = get_timezone_from_location(conversion_city_name)
+
+    # Make sure timezones were found for both cities
+    if not initial_timezone or not conversion_timezone:
+        await update.message.reply_text(
+            "Sorry, I couldn't recognize the timezones for the cities. Please try again with valid city names."
+        )
+        return
+
+    # Convert the parsed datetime to the conversion city's timezone
+    conversion_datetime = pytz.timezone(conversion_timezone).localize(parsed_datetime)
+
+    # Convert the conversion datetime to the initial city's timezone
+    initial_datetime = conversion_datetime.astimezone(pytz.timezone(initial_timezone))
+
+    # Format the time strings
+    conversion_time_string = conversion_datetime.strftime("%I:%M %p")
+    initial_time_string = initial_datetime.strftime("%I:%M %p")
+
+    response = f"The time in {initial_city_name} is {initial_time_string}."
+
+    await update.message.reply_text(
+        response,
+        reply_markup=generate_markup(4),
+    )
+    return NEW_CITY
 
 
 async def get_time_difference(update, context):
@@ -211,6 +297,7 @@ async def get_time_difference(update, context):
             f"Sorry, I couldn't recognize {user_text} as a city. Please enter another city name:"
         )
         return
+
 
 # send a typing indicator in the chat
 @send_typing_action
@@ -240,14 +327,14 @@ async def calculate_time_difference(update, context):
         )
     elif time_difference.total_seconds() > 0:
         difference_text = (
-                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-                + " hours behind"
+            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+            + " hours behind"
         )
         message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
     else:
         difference_text = (
-                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-                + " hours ahead"
+            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+            + " hours ahead"
         )
         message = (
             f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
@@ -312,8 +399,9 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_new_city)
             ],
             CONVERSION: [
-                # MessageHandler(filters.TEXT & ~filters.COMMAND, handle_conversion)
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_conversion)
             ],
+            TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_time)],
             DIFFERENCE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, get_time_difference)
             ],
