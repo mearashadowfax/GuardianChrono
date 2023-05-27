@@ -32,6 +32,9 @@ from config import TELEGRAM_API_TOKEN
 
 # enable logging
 logging.basicConfig(level=logging.INFO)
+# Geocoding service
+geolocator = Nominatim(user_agent="timezone_converter")
+timezone_finder = TimezoneFinder()
 
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE, TIME = range(5)
@@ -241,15 +244,18 @@ async def handle_time(update, context):
 
     if not initial_timezone or not conversion_timezone:
         await update.message.reply_text(
-            "Sorry, I couldn't recognize the timezones for the cities. Please try again with valid city names."
+            "Sorry, I couldn't recognize the timezones for the cities. Please try again with valid city names.",
+            reply_markup=generate_markup(4),
         )
         return
 
-    conversion_datetime = pytz.timezone(conversion_timezone).localize(parsed_datetime)
-    initial_datetime = conversion_datetime.astimezone(pytz.timezone(initial_timezone))
-    initial_time_string = initial_datetime.strftime("%I:%M %p")
+    initial_datetime = pytz.timezone(initial_timezone).localize(parsed_datetime)
+    conversion_datetime = initial_datetime.astimezone(
+        pytz.timezone(conversion_timezone)
+    )
+    conversion_time_string = conversion_datetime.strftime("%I:%M %p")
 
-    response = f"The time in {initial_city_name} is {initial_time_string}."
+    response = f"The time in {initial_city_name} is {conversion_time_string}."
 
     await update.message.reply_text(
         response,
