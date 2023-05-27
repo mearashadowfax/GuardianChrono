@@ -9,7 +9,7 @@ import random  # Random number generation
 
 # Third-Party Imports
 import pytz  # Timezone manipulation
-import spacy  # Natural language processing
+import re  # Regular expression matching
 import dateparser  # Date parsing and manipulation library
 from geopy.geocoders import Nominatim  # Geocoding service
 from timezonefinder import TimezoneFinder  # Timezone lookup
@@ -32,13 +32,6 @@ from config import TELEGRAM_API_TOKEN
 
 # enable logging
 logging.basicConfig(level=logging.INFO)
-
-# load pre-trained spacy model
-nlp = spacy.load("en_core_web_sm")
-
-# Geocoding service
-geolocator = Nominatim(user_agent="timezone_converter")
-timezone_finder = TimezoneFinder()
 
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE, TIME = range(5)
@@ -83,12 +76,12 @@ send_typing_action = send_action(
 # function to create markup with specific number of buttons
 def generate_markup(num_buttons):
     if num_buttons == 3:
-        # return a markup with the first three buttons only
+        # Return a markup with the first three buttons only
         return InlineKeyboardMarkup(
             [reply_markup[0][:num_buttons]] + [reply_markup[1][:1]]
         )
     else:
-        # return the full markup with all four buttons
+        # Return the full markup with all four buttons
         return InlineKeyboardMarkup(reply_markup)
 
 
@@ -223,51 +216,37 @@ async def handle_time(update, context):
     user_input = update.message.text.lower()
     initial_city_name = context.user_data.get("initial_city_name")
 
-    # Extract time and city from user input using spaCy NLP
-    doc = nlp(user_input)
-
-    time_string = next(
-        (token.text for token in doc.ents if token.label_ == "TIME"), None
+    # Extract time and city from user input using regular expressions
+    time_string = re.findall(
+        r"\b\d{1,2}(?::\d{2})?(?:\.\d{2})?\s*(?:am|pm)?\b", user_input
     )
-    conversion_city_name = next(
-        (token.text for token in doc.ents if token.label_ == "GPE"), None
-    )
+    city_name = re.findall(r"\b[A-Za-z]+(?:\s*[A-Za-z]+)*\b", user_input)
 
-    # Make sure both time and conversion city are present
-    if not time_string or not conversion_city_name:
+    if not time_string or not city_name:
         await update.message.reply_text(
             "Sorry, I couldn't recognize the time and city. Please try again with a valid format."
         )
         return
 
-    # Parse the datetime from the time string using dateparser
-    parsed_datetime = dateparser.parse(time_string)
+    parsed_datetime = dateparser.parse(time_string[0])
 
-    # Make sure datetime parsing was successful
     if not parsed_datetime:
         await update.message.reply_text(
             "Sorry, I couldn't parse the time. Please try again with a valid format."
         )
         return
 
-    # Get the initial timezone and conversion timezone
     initial_timezone = get_timezone_from_location(initial_city_name)
-    conversion_timezone = get_timezone_from_location(conversion_city_name)
+    conversion_timezone = get_timezone_from_location(city_name[0])
 
-    # Make sure timezones were found for both cities
     if not initial_timezone or not conversion_timezone:
         await update.message.reply_text(
             "Sorry, I couldn't recognize the timezones for the cities. Please try again with valid city names."
         )
         return
 
-    # Convert the parsed datetime to the conversion city's timezone
     conversion_datetime = pytz.timezone(conversion_timezone).localize(parsed_datetime)
-
-    # Convert the conversion datetime to the initial city's timezone
     initial_datetime = conversion_datetime.astimezone(pytz.timezone(initial_timezone))
-
-    # Format the time strings
     initial_time_string = initial_datetime.strftime("%I:%M %p")
 
     response = f"The time in {initial_city_name} is {initial_time_string}."
