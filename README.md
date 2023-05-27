@@ -6,21 +6,15 @@ GuardianChrono is a Telegram bot built with Python's python-telegram-bot library
 
 ## Getting started
 To get started with this project, follow these steps:  
-1. Set up a new Python environment with your preferred tools
-2. Install the `python-telegram-bot` package using pip:
+1. Create a new Telegram Bot and obtain a token following the [instructions](https://core.telegram.org/bots#how-do-i-create-a-bot)
+2. Clone this repository and navigate to the project directory
+3. Install the required dependencies using `pip install -r requirements.txt`
+4. Create a `config.py` file in the project directory and define a variable named `TELEGRAM_API_TOKEN` with your Telegram Bot token. The contents of your `config.py` file should look like this:
 ```
-pip install python-telegram-bot
+TELEGRAM_API_TOKEN = 'YOUR_TELEGRAM_API_TOKEN'
 ```
-3. Download and install the [spaCy](https://spacy.io/) model for your preferred language to detect named entities such as city names in the text: 
-```
-python3 -m spacy download en_core_web_sm
-```
-4. Clone this repository and navigate to the project directory
-5. Create a new Telegram Bot and obtain a token following the [instructions](https://core.telegram.org/bots#how-do-i-create-a-bot)
-6. Add your Telegram Bot token to the `config.py` file
-7. Run the bot with the command `python3 bot.py`
-
-You can then interact with the bot via Telegram.
+5. Run `python3 bot.py` script
+6. Start the bot in Telegram by searching for the bot name and clicking on the `start` button
 
 ## Usage
 This Telegram bot offers the following features:  
