@@ -23,7 +23,7 @@ This Telegram bot offers the following features:
 3. Convert Timezone: Convert a specific time to your local timezone.  
 4. Compare Time Difference: Easily compare the time difference between two cities.
 
-You can access these features by tapping the corresponding buttons in a chat to quickly retrieve time zone information.
+To learn more about the bot's features, visit the bot at [GuardianChrono](https://t.me/GuardianChronoBot).
 ## Contributing
 If you'd like to contribute to this project, feel free to fork the repository and submit a pull request. You can also create an issue to report bugs or suggest new features.
 
