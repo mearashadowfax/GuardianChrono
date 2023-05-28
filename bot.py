@@ -9,8 +9,6 @@ import random  # Random number generation
 
 # Third-Party Imports
 import pytz  # Timezone manipulation
-import re  # Regular expression matching
-import dateparser  # Date parsing and manipulation library
 from geopy.geocoders import Nominatim  # Geocoding service
 from timezonefinder import TimezoneFinder  # Timezone lookup
 
@@ -32,7 +30,8 @@ from config import TELEGRAM_API_TOKEN
 
 # enable logging
 logging.basicConfig(level=logging.INFO)
-# Geocoding service
+
+# Initialize the geocoder and timezone finder
 geolocator = Nominatim(user_agent="timezone_converter")
 timezone_finder = TimezoneFinder()
 
@@ -205,10 +204,10 @@ async def handle_callback_query(update, context):
 async def handle_conversion(update, context):
     user_input = update.message.text
     # store user's city name
-    context.user_data["initial_city_name"] = user_input
+    context.user_data["destination_city_name"] = user_input
     # ask user which time they want to convert from
     await update.message.reply_text(
-        "Please enter the time you want to convert using the format 'HH:MM AM/PM City'"
+        "Please enter the time and the city you are converting from using the format 'HH:MM AM/PM City'"
     )
     return TIME
 
@@ -216,51 +215,35 @@ async def handle_conversion(update, context):
 # send a typing indicator in the chat
 @send_typing_action
 async def handle_time(update, context):
-    user_input = update.message.text.lower()
-    initial_city_name = context.user_data.get("initial_city_name")
+    user_input = update.message.text
+    destination_city_name = context.user_data.get("destination_city_name")
 
-    # Extract time and city from user input using regular expressions
-    time_string = re.findall(
-        r"\b\d{1,2}(?::\d{2})?(?:\.\d{2})?\s*(?:am|pm)?\b", user_input
-    )
-    city_name = re.findall(r"\b[A-Za-z]+(?:\s*[A-Za-z]+)*\b", user_input)
+    # Convert the time
+    source_time_parts = user_input.split(" ", 2)
+    source_time = source_time_parts[0].strip()
+    am_pm = source_time_parts[1].strip()
+    initial_city = source_time_parts[2].strip()
 
-    if not time_string or not city_name:
-        await update.message.reply_text(
-            "Sorry, I couldn't recognize the time and city. Please try again with a valid format."
-        )
+    # Combine the source time and AM/PM indicator
+    source_time = source_time + " " + am_pm
+
+    initial_timezone = get_timezone_from_location(initial_city)
+    if initial_timezone is None:
+        await update.message.reply_text("Invalid source city.")
         return
 
-    parsed_datetime = dateparser.parse(time_string[0])
-
-    if not parsed_datetime:
-        await update.message.reply_text(
-            "Sorry, I couldn't parse the time. Please try again with a valid format."
-        )
+    destination_timezone = get_timezone_from_location(destination_city_name)
+    if destination_timezone is None:
+        await update.message.reply_text("Invalid destination city.")
         return
 
-    initial_timezone = get_timezone_from_location(initial_city_name)
-    conversion_timezone = get_timezone_from_location(city_name[0])
+    destination_time = convert_time(source_time, initial_timezone, destination_timezone)
 
-    if not initial_timezone or not conversion_timezone:
-        await update.message.reply_text(
-            "Sorry, I couldn't recognize the timezones for the cities. Please try again with valid city names.",
-            reply_markup=generate_markup(4),
-        )
-        return
-
-    initial_datetime = pytz.timezone(initial_timezone).localize(parsed_datetime)
-    conversion_datetime = initial_datetime.astimezone(
-        pytz.timezone(conversion_timezone)
-    )
-    conversion_time_string = conversion_datetime.strftime("%I:%M %p")
-
-    response = f"The time in {initial_city_name} is {conversion_time_string}."
-
+    # Send the converted time as the response
     await update.message.reply_text(
-        response,
-        reply_markup=generate_markup(4),
+        f"The converted time is: {destination_time}", reply_markup=generate_markup(4)
     )
+
     return NEW_CITY
 
 
@@ -342,7 +325,6 @@ def get_timezone_details(timezone_name):
 # function to get timezone from location
 # given a city name, return its timezone name
 def get_timezone_from_location(city_name):
-    geolocator = Nominatim(user_agent="timezone_bot")
     location = geolocator.geocode(city_name, timeout=10)
     if location is None:
         return None
@@ -366,6 +348,40 @@ def get_current_time_in_timezone(timezone_name):
     timezone = pytz.timezone(timezone_name)
     city_time = datetime.datetime.now(timezone).strftime("%H:%M:%S %d.%m.%Y")
     return city_time
+
+
+def convert_time(source_time, initial_timezone, destination_timezone):
+    # Parse the source time using a specific format
+    source_dt = datetime.datetime.strptime(source_time, "%I:%M %p")
+
+    # Create a naive datetime object
+    naive_dt = datetime.datetime(source_dt.year, source_dt.month, source_dt.day, source_dt.hour, source_dt.minute)
+
+    # Get the initial and destination timezones
+    initial_tz = pytz.timezone(initial_timezone)
+    destination_tz = pytz.timezone(destination_timezone)
+
+    # Attach the initial timezone to the naive datetime
+    source_dt = initial_tz.localize(naive_dt)
+
+    # Check if the initial and destination timezones are in the same hemisphere
+    if (
+        initial_tz.utcoffset(source_dt).total_seconds()
+        * destination_tz.utcoffset(source_dt).total_seconds()
+        >= 0
+    ):
+        # Timezones are in the same hemisphere, directly convert the time
+        destination_dt = source_dt.astimezone(destination_tz)
+    else:
+        # Timezones are in different hemispheres, adjust the time considering the UTC offset difference
+        utc_dt = source_dt.astimezone(pytz.UTC)
+        destination_dt = utc_dt.astimezone(destination_tz)
+
+    # Format the destination time as a string with AM/PM indicator
+    destination_time = destination_dt.strftime("%I:%M %p")
+
+    return destination_time
+
 
 
 def main():
