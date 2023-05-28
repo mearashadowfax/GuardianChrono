@@ -354,34 +354,23 @@ def convert_time(source_time, initial_timezone, destination_timezone):
     # Parse the source time using a specific format
     source_dt = datetime.datetime.strptime(source_time, "%I:%M %p")
 
-    # Create a naive datetime object
-    naive_dt = datetime.datetime(source_dt.year, source_dt.month, source_dt.day, source_dt.hour, source_dt.minute)
-
     # Get the initial and destination timezones
     initial_tz = pytz.timezone(initial_timezone)
     destination_tz = pytz.timezone(destination_timezone)
 
-    # Attach the initial timezone to the naive datetime
-    source_dt = initial_tz.localize(naive_dt)
+    # Combine the source date with the source time
+    source_date = datetime.datetime.now().date()
+    source_dt = initial_tz.localize(
+        datetime.datetime.combine(source_date, source_dt.time())
+    )
 
-    # Check if the initial and destination timezones are in the same hemisphere
-    if (
-        initial_tz.utcoffset(source_dt).total_seconds()
-        * destination_tz.utcoffset(source_dt).total_seconds()
-        >= 0
-    ):
-        # Timezones are in the same hemisphere, directly convert the time
-        destination_dt = source_dt.astimezone(destination_tz)
-    else:
-        # Timezones are in different hemispheres, adjust the time considering the UTC offset difference
-        utc_dt = source_dt.astimezone(pytz.UTC)
-        destination_dt = utc_dt.astimezone(destination_tz)
+    # Convert the source time to the destination timezone
+    destination_dt = source_dt.astimezone(destination_tz)
 
     # Format the destination time as a string with AM/PM indicator
     destination_time = destination_dt.strftime("%I:%M %p")
 
     return destination_time
-
 
 
 def main():
