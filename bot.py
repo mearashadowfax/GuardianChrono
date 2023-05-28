@@ -229,19 +229,24 @@ async def handle_time(update, context):
 
     initial_timezone = get_timezone_from_location(initial_city)
     if initial_timezone is None:
-        await update.message.reply_text("Invalid source city.")
+        await update.message.reply_text(
+            "Invalid source city.", reply_markup=generate_markup(4)
+        )
         return
 
     destination_timezone = get_timezone_from_location(destination_city_name)
     if destination_timezone is None:
-        await update.message.reply_text("Invalid destination city.")
+        await update.message.reply_text(
+            "Invalid destination city.", reply_markup=generate_markup(4)
+        )
         return
 
     destination_time = convert_time(source_time, initial_timezone, destination_timezone)
 
     # Send the converted time as the response
     await update.message.reply_text(
-        f"The converted time is: {destination_time}", reply_markup=generate_markup(4)
+        f"The time in {destination_city_name} is {destination_time}.",
+        reply_markup=generate_markup(4),
     )
 
     return NEW_CITY
