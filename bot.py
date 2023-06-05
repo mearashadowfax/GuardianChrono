@@ -1,16 +1,16 @@
-# Standard Library Imports
-import asyncio  # Asynchronous programming support
+# standard Library Imports
+import asyncio  # asynchronous programming support
 import json  # JSON serialization and deserialization
-import logging  # Logging utility
-import datetime  # Date and time manipulation
-from decimal import Decimal  # Decimal arithmetic
-from functools import wraps  # Function decorator utility
-import random  # Random number generation
+import logging  # logging utility
+import datetime  # date and time manipulation
+from decimal import Decimal  # decimal arithmetic
+from functools import wraps  # function decorator utility
+import random  # random number generation
 
-# Third-Party Imports
-import pytz  # Timezone manipulation
-from geopy.geocoders import Nominatim  # Geocoding service
-from timezonefinder import TimezoneFinder  # Timezone lookup
+# third-Party Imports
+import pytz  # timezone manipulation
+from geopy.geocoders import Nominatim  # geocoding service
+from timezonefinder import TimezoneFinder  # timezone lookup
 
 # import the required Telegram modules
 from telegram.constants import ChatAction
@@ -87,7 +87,7 @@ def generate_markup(num_buttons):
             [reply_markup[0][:num_buttons]] + [reply_markup[1][:1]]
         )
     else:
-        # Return the full markup with all four buttons
+        # return the full markup with all four buttons
         return InlineKeyboardMarkup(reply_markup)
 
 
@@ -99,7 +99,7 @@ async def start_conversation(update, context):
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
 
-    # If we're starting over we don't need to send a new message
+    # if we're starting over we don't need to send a welcome_message
     if context.user_data.get(START_OVER):
         questions = [
             "What do you want to do next?",
@@ -110,15 +110,22 @@ async def start_conversation(update, context):
             "Do you have any other requests?",
         ]
         random_question = random.choice(questions)
-        await update.message.reply_text(
-            random_question, reply_markup=generate_markup(4)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=random_question,
+            reply_markup=generate_markup(4),
         )
     else:
         welcome_message = strings["welcome_message"]
         await update.message.reply_text(welcome_message, parse_mode="HTML")
         await update.message.reply_text("Please enter a city name:")
+
+    # reset the START_OVER flag to False
     context.user_data[START_OVER] = False
-    # Start the timeout timer
+
+    # cancel any previous timeout timers and start a new one
+    if timeout_timer is not None:
+        timeout_timer.cancel()
     timeout_timer = asyncio.create_task(timeout(update, context))
     context.user_data["timeout_timer"] = timeout_timer
 
@@ -126,28 +133,51 @@ async def start_conversation(update, context):
 
 
 async def start(update, context):
-    # Start a conversation
+    # start a conversation
     await start_conversation(update, context)
 
     return CITY
 
 
 async def restart(update, context):
-    # Clear the user data
+    # clear the user data
     context.user_data.clear()
 
-    # Set a flag to indicate that the conversation has been restarted
+    # set a flag to indicate that the conversation has been restarted
     context.user_data[START_OVER] = True
 
-    # Start a new conversation
+    # start a new conversation
     await start_conversation(update, context)
 
 
 async def timeout(update, context):
-    await asyncio.sleep(180.0)  # Wait for 180 seconds
-    await update.message.reply_text(
-        "Conversation timed out. Use /restart to start over."
+    await asyncio.sleep(20.0)  # Wait for 20 seconds
+
+    # generate an inline keyboard with a button that starts a new conversation
+    button = InlineKeyboardButton(text="Start Over", callback_data="start_over")
+    keyboard = InlineKeyboardMarkup([[button]])
+
+    message = (
+        "It seems like our conversation timed out. To start over, please tap on the button below to initiate a new "
+        "conversation."
     )
+
+    # send the message with the inline keyboard
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=message, reply_markup=keyboard
+    )
+
+
+async def start_conv_handler(update, context):
+    callback_query = update.callback_query
+    context.user_data.clear()
+    if callback_query.data == "start_over":
+        # set a flag to indicate that the conversation has been restarted
+        context.user_data[START_OVER] = True
+
+        # start a new conversation
+        await start_conversation(update, context)
+    await callback_query.answer()
 
 
 # send a typing indicator in the chat
@@ -270,13 +300,13 @@ async def handle_time(update, context):
     user_input = update.message.text
     destination_city_name = context.user_data.get("destination_city_name")
 
-    # Convert the time
+    # convert the time
     source_time_parts = user_input.split(" ", 2)
     source_time = source_time_parts[0].strip()
     am_pm = source_time_parts[1].strip()
     initial_city = source_time_parts[2].strip()
 
-    # Combine the source time and AM/PM indicator
+    # combine the source time and AM/PM indicator
     source_time = source_time + " " + am_pm
 
     initial_timezone = get_timezone_from_location(initial_city)
@@ -295,12 +325,12 @@ async def handle_time(update, context):
 
     destination_time = convert_time(source_time, initial_timezone, destination_timezone)
 
-    # Send the converted time as the response
+    # send the converted time as the response
     await update.message.reply_text(
         f"The time in {destination_city_name} is {destination_time}."
     )
     context.user_data[START_OVER] = True
-    await start(update, context)
+    await start_conversation(update, context)
 
 
 async def get_time_difference(update, context):
@@ -362,7 +392,7 @@ async def calculate_time_difference(update, context):
         )
     await update.message.reply_text(message)
     context.user_data[START_OVER] = True
-    await start(update, context)
+    await start_conversation(update, context)
 
 
 # function to get timezone details
@@ -405,23 +435,23 @@ def get_current_time_in_timezone(timezone_name):
 
 
 def convert_time(source_time, initial_timezone, destination_timezone):
-    # Parse the source time using a specific format
+    # parse the source time using a specific format
     source_dt = datetime.datetime.strptime(source_time, "%I:%M %p")
 
-    # Get the initial and destination timezones
+    # get the initial and destination timezones
     initial_tz = pytz.timezone(initial_timezone)
     destination_tz = pytz.timezone(destination_timezone)
 
-    # Combine the source date with the source time
+    # combine the source date with the source time
     source_date = datetime.datetime.now().date()
     source_dt = initial_tz.localize(
         datetime.datetime.combine(source_date, source_dt.time())
     )
 
-    # Convert the source time to the destination timezone
+    # convert the source time to the destination timezone
     destination_dt = source_dt.astimezone(destination_tz)
 
-    # Format the destination time as a string with AM/PM indicator
+    # format the destination time as a string with AM/PM indicator
     destination_time = destination_dt.strftime("%I:%M %p")
 
     return destination_time
@@ -453,12 +483,14 @@ def main():
             )
         ],
     )
-    # Add the conversation handler to the application's handlers
+    # add the conversation handler to the application's handlers
     application.add_handler(conv_handler)
 
-    # Add the restart command handler
+    # add the restart command handler
     application.add_handler(CommandHandler("restart", restart))
-
+    application.add_handler(
+        CallbackQueryHandler(start_conv_handler, pattern="^(start_over)$")
+    )
     # start the Telegram bot
     application.run_polling()
 
