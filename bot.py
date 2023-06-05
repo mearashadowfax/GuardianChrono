@@ -31,12 +31,16 @@ from config import TELEGRAM_API_TOKEN
 # enable logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize the geocoder and timezone finder
+# initialize the geocoder and timezone finder
 geolocator = Nominatim(user_agent="timezone_converter")
 timezone_finder = TimezoneFinder()
 
+# declare a global variable to hold the timer object
+timeout_timer = None
+
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE, TIME = range(5)
+START_OVER = "start_over"
 
 # specify the reply markup layout
 reply_markup = [
@@ -88,13 +92,62 @@ def generate_markup(num_buttons):
 
 
 # handler function for /start command
-async def start(update, context):
+async def start_conversation(update, context):
+    # use the global keyword to access the global variable
+    global timeout_timer
+
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
-    welcome_message = strings["welcome_message"]
-    await update.message.reply_text(welcome_message, parse_mode="HTML")
-    await update.message.reply_text("Please enter a city name:")
+
+    # If we're starting over we don't need to send a new message
+    if context.user_data.get(START_OVER):
+        questions = [
+            "What do you want to do next?",
+            "What would you like to do next?",
+            "How can I assist you further?",
+            "Is there anything else I can help you with?",
+            "What is your next query?",
+            "Do you have any other requests?",
+        ]
+        random_question = random.choice(questions)
+        await update.message.reply_text(
+            random_question, reply_markup=generate_markup(4)
+        )
+    else:
+        welcome_message = strings["welcome_message"]
+        await update.message.reply_text(welcome_message, parse_mode="HTML")
+        await update.message.reply_text("Please enter a city name:")
+    context.user_data[START_OVER] = False
+    # Start the timeout timer
+    timeout_timer = asyncio.create_task(timeout(update, context))
+    context.user_data["timeout_timer"] = timeout_timer
+
     return CITY
+
+
+async def start(update, context):
+    # Start a conversation
+    await start_conversation(update, context)
+
+    return CITY
+
+
+async def restart(update, context):
+    # Clear the user data
+    context.user_data.clear()
+
+    # Set a flag to indicate that the conversation has been restarted
+    context.user_data[START_OVER] = True
+
+    # Start a new conversation
+    await start_conversation(update, context)
+
+
+async def timeout(update, context):
+    await asyncio.sleep(180.0)  # Wait for 180 seconds
+    await update.message.reply_text(
+        "Conversation timed out. Use /restart to start over."
+    )
 
 
 # send a typing indicator in the chat
@@ -157,15 +210,15 @@ async def handle_new_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
         microsecond=0
     )
     formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
-    reply1 = f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
-    reply2 = f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+    reply1 = f"The time in {city_name} right now is {formatted_city_time}."
+    "Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+    reply2 = f"It's currently {formatted_city_time} in {city_name}."
+    "Timezone: {timezone_abbr} ({timezone_offset_formatted})"
     reply = random.choice([reply1, reply2])
     await update.message.reply_text(
         reply,
         reply_markup=generate_markup(4),
     )
-    # switch the conversation context to 'NEW_CITY'
-    return NEW_CITY
 
 
 async def handle_callback_query(update, context):
@@ -196,7 +249,6 @@ async def handle_callback_query(update, context):
             parse_mode="HTML",
             reply_markup=generate_markup(3),
         )
-        return NEW_CITY
 
 
 # send a typing indicator in the chat
@@ -245,11 +297,10 @@ async def handle_time(update, context):
 
     # Send the converted time as the response
     await update.message.reply_text(
-        f"The time in {destination_city_name} is {destination_time}.",
-        reply_markup=generate_markup(4),
+        f"The time in {destination_city_name} is {destination_time}."
     )
-
-    return NEW_CITY
+    context.user_data[START_OVER] = True
+    await start(update, context)
 
 
 async def get_time_difference(update, context):
@@ -309,11 +360,9 @@ async def calculate_time_difference(update, context):
         message = (
             f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
         )
-    await update.message.reply_text(
-        message,
-        reply_markup=generate_markup(4),
-    )
-    return NEW_CITY
+    await update.message.reply_text(message)
+    context.user_data[START_OVER] = True
+    await start(update, context)
 
 
 # function to get timezone details
@@ -404,7 +453,11 @@ def main():
             )
         ],
     )
+    # Add the conversation handler to the application's handlers
     application.add_handler(conv_handler)
+
+    # Add the restart command handler
+    application.add_handler(CommandHandler("restart", restart))
 
     # start the Telegram bot
     application.run_polling()
