@@ -151,20 +151,21 @@ async def restart(update, context):
 
 
 async def timeout(update, context):
-    await asyncio.sleep(20.0)  # Wait for 20 seconds
+    await asyncio.sleep(180.0)  # Wait for 180 seconds
 
     # generate an inline keyboard with a button that starts a new conversation
     button = InlineKeyboardButton(text="Start Over", callback_data="start_over")
     keyboard = InlineKeyboardMarkup([[button]])
 
-    message = (
-        "It seems like our conversation timed out. To start over, please tap on the button below to initiate a new "
-        "conversation."
-    )
-
+    messages = [
+        "Sorry, it seems like our conversation timed out. Please tap below to start a new one.",
+        "It appears that your session has expired. Kindly tap below to initiate a new one.",
+        "It looks like our conversation has timed out. Tap the button below to start a new one.",
+    ]
+    random_message = random.choice(messages)
     # send the message with the inline keyboard
     await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=message, reply_markup=keyboard
+        chat_id=update.effective_chat.id, text=random_message, reply_markup=keyboard
     )
 
 
