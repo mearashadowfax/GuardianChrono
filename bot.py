@@ -178,8 +178,13 @@ async def handle_city(update, context):
         return
     # get user's city name input
     user_text = update.message.text
-    # format the user input (capitalize first letter of each word)
-    city_name = user_text.title() if user_text.islower() else user_text
+    # check if the user input is in all capital letters
+    if user_text.isupper():
+        # capitalize only the first letter and convert the rest to lowercase
+        city_name = user_text.capitalize()
+    else:
+        # capitalize the first letter of each word
+        city_name = user_text.title() if user_text.islower() else user_text
     # get the timezone name of the city from user input
     timezone_name = get_timezone_from_location(user_text)
     # if the detected timezone name is none, prompt the user to enter another city name
@@ -217,8 +222,15 @@ async def handle_new_city(update, context):
     # check if conversation is still active
     if not context.user_data.get("conversation_active"):
         return
+    # get user's city name input
     user_text = update.message.text
-    city_name = user_text.title() if user_text.islower() else user_text
+    # check if the user input is in all capital letters
+    if user_text.isupper():
+        # capitalize only the first letter and convert the rest to lowercase
+        city_name = user_text.capitalize()
+    else:
+        # capitalize the first letter of each word
+        city_name = user_text.title() if user_text.islower() else user_text
     timezone_name = get_timezone_from_location(user_text)
     if timezone_name is None:
         await update.message.reply_text(
@@ -335,8 +347,15 @@ async def get_time_difference(update, context):
     # check if conversation is still active
     if not context.user_data.get("conversation_active"):
         return
+    # get user's city name input
     user_text = update.message.text
-    city_name = user_text.title() if user_text.islower() else user_text
+    # check if the user input is in all capital letters
+    if user_text.isupper():
+        # capitalize only the first letter and convert the rest to lowercase
+        city_name = user_text.capitalize()
+    else:
+        # capitalize the first letter of each word
+        city_name = user_text.title() if user_text.islower() else user_text
     try:
         timezone_name = get_timezone_from_location(user_text)
         city_time = get_current_time_in_timezone(timezone_name)
