@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  guardian-chrono:
+    build: .
+    volumes:
+      - type: bind
+        source: ./config.py
+        target: /config.py
+        read_only: true
+    restart: unless-stopped
