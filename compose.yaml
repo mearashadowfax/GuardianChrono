@@ -3,6 +3,8 @@ version: "3.8"
 services:
   guardian-chrono:
     build: .
+    env_file:
+      - .env
     volumes:
       - type: bind
         source: ./config.py
