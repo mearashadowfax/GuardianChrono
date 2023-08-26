@@ -8,36 +8,42 @@ GuardianChrono is a Telegram bot built with Python's python-telegram-bot library
 To get started with this project, follow these steps:  
 1. Create a new Telegram Bot and obtain a token following the [instructions](https://core.telegram.org/bots#how-do-i-create-a-bot)
 2. Clone this repository and navigate to the project directory
-3. Create a `config.py` file in the project directory and define a variable named `TELEGRAM_API_TOKEN` with your Telegram Bot token. The contents of your `config.py` file should look like this:
+3. Create a `.env` file in the project directory and define a variable named `TELEGRAM_API_TOKEN` with your Telegram Bot token. The contents of your `.env` file should look like this:
 ```
-TELEGRAM_API_TOKEN = 'YOUR_TELEGRAM_API_TOKEN'
+TELEGRAM_API_TOKEN = YOUR_TELEGRAM_API_TOKEN
+```
+4. Create a `config.py` file in the project directory. In your `config.py` file, import the `os` module and use `os.environ.get()` to access the environment variables:
+```
+import os
+
+TELEGRAM_API_TOKEN = os.environ.get("TELEGRAM_API_TOKEN")
 ```
 <details>
 <summary>Native</summary>
 
-4. Install the required dependencies using `pip install -r requirements.txt`
-5. Run `python3 bot.py` script
+5. Install the required dependencies using `pip install -r requirements.txt`
+6. Run the `bot.py` script using `python3 bot.py`
 </details>
 <details>
 <summary>Docker</summary>
 
-4. Build the container with
+5. Build the Docker container using
 
-```sh
+```
 docker build -t guardian-chrono .
 ```
-5. Run the container with
+6. Run the Docker container using the command
 
-```sh
+```
 docker run --mount type=bind,source="$(pwd)"/config.py,target=/config.py,readonly guardian-chrono
 ```
 </details>
 <details>
 <summary>Docker Compose</summary>
 
-4. Build and run the container with
+5. Build and run the Docker container using
 
-```sh
+```
 docker compose up -d
 ```
 </details>
