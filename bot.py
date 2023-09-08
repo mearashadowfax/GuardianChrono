@@ -56,12 +56,13 @@ async def start_conversation(update, context):
     # if we're starting over we don't need to send a welcome_message
     if context.user_data.get(START_OVER):
         questions = [
-            "What do you want to do next?",
-            "What would you like to do next?",
-            "How can I assist you further?",
-            "Is there anything else I can help you with?",
-            "What is your next query?",
-            "Do you have any other requests?",
+            "How can I assist you? Check the time in cities, convert timezones, or compare time differences:",
+            "Convert time, check time in cities, or calculate time differences. What would you like?",
+            "Is there a specific city you'd like to know the time for, or do you have other questions in mind?",
+            "What's your next time-related request? Time in cities, timezone conversion, or time difference?",
+            "City time, timezone conversion, or time difference? Your choice:",
+            "Time in a city, timezone conversion, or time difference? Let me know:",
+            "Explore city time, timezone conversion, or time difference. What's your pick?",
         ]
         random_question = random.choice(questions)
         await context.bot.send_message(
