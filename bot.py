@@ -206,7 +206,8 @@ async def handle_city(update, context):
     city_time_obj = datetime.datetime.strptime(city_time, "%H:%M:%S %d.%m.%Y").replace(
         microsecond=0
     )
-    formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
+    day_suffix = get_day_suffix(city_time_obj.day)
+    formatted_city_time = city_time_obj.strftime(f"%I:%M %p on %B %d{day_suffix}, %Y")
     # send the current time, timezone abbreviation and offset to the user and propose next actions
     await update.message.reply_text(
         f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
@@ -246,11 +247,10 @@ async def handle_new_city(update, context):
     city_time_obj = datetime.datetime.strptime(city_time, "%H:%M:%S %d.%m.%Y").replace(
         microsecond=0
     )
-    formatted_city_time = city_time_obj.strftime("%I:%M %p on %B %dth, %Y")
-    reply1 = f"The time in {city_name} right now is {formatted_city_time}."
-    "Timezone: {timezone_abbr} ({timezone_offset_formatted})"
-    reply2 = f"It's currently {formatted_city_time} in {city_name}."
-    "Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+    day_suffix = get_day_suffix(city_time_obj.day)
+    formatted_city_time = city_time_obj.strftime(f"%I:%M %p on %B %d{day_suffix}, %Y")
+    reply1 = f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
+    reply2 = f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
     reply = random.choice([reply1, reply2])
     await update.message.reply_text(
         reply,
@@ -435,6 +435,15 @@ def get_timezone_from_location(city_name):
     tf = TimezoneFinder()
     timezone_name = tf.timezone_at(lng=location.longitude, lat=location.latitude)
     return timezone_name
+
+
+# get the appropriate suffix for a day of the month
+def get_day_suffix(day):
+    if 10 <= day % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return suffix
 
 
 # function to get the current UTC time in a timezone
