@@ -22,7 +22,7 @@ TELEGRAM_API_TOKEN = os.environ.get("TELEGRAM_API_TOKEN")
 <summary>Native</summary>
 
 5. Install the required dependencies using `pip install -r requirements.txt`
-6. Run the `bot.py` script using `python3 bot.py`
+6. Run the `main.py` script using `python3 main.py`
 </details>
 <details>
 <summary>Docker</summary>

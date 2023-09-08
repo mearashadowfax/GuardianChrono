@@ -4,16 +4,9 @@ import json  # JSON serialization and deserialization
 import logging  # logging utility
 import datetime  # date and time manipulation
 from decimal import Decimal  # decimal arithmetic
-from functools import wraps  # function decorator utility
 import random  # random number generation
 
-# third-Party Imports
-import pytz  # timezone manipulation
-from geopy.geocoders import Nominatim  # geocoding service
-from timezonefinder import TimezoneFinder  # timezone lookup
-
 # import the required Telegram modules
-from telegram.constants import ChatAction
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     CommandHandler,
@@ -27,12 +20,19 @@ from telegram.ext import (
 # import the Telegram API token from config.py
 from config import TELEGRAM_API_TOKEN
 
+from utils import (
+    send_typing_action,
+    generate_markup,
+    get_timezone_details,
+    get_timezone_from_location,
+    get_day_suffix,
+    get_current_utc_time,
+    get_current_time_in_timezone,
+    convert_time,
+)
+
 # enable logging
 logging.basicConfig(level=logging.INFO)
-
-# initialize the geocoder and timezone finder
-geolocator = Nominatim(user_agent="timezone_converter")
-timezone_finder = TimezoneFinder()
 
 # declare a global variable to hold the timer object
 timeout_timer = None
@@ -40,54 +40,6 @@ timeout_timer = None
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE, TIME = range(5)
 START_OVER = "start_over"
-
-# specify the reply markup layout
-reply_markup = [
-    [
-        InlineKeyboardButton("Convert", callback_data="conversion"),
-        InlineKeyboardButton("Difference", callback_data="difference"),
-    ],
-    [
-        InlineKeyboardButton("New City", callback_data="new_city"),
-        InlineKeyboardButton("Help", callback_data="help"),
-    ],
-]
-# combine the buttons into a markup layout
-markup = InlineKeyboardMarkup(reply_markup)
-
-
-# define the send_action decorator
-def send_action(action, delay=1):
-    def decorator(func):
-        @wraps(func)
-        async def command_func(update, context, *args, **kwargs):
-            await context.bot.send_chat_action(
-                chat_id=update.effective_message.chat_id, action=action
-            )
-            await asyncio.sleep(delay)  # wait for the specified delay time
-            return await func(update, context, *args, **kwargs)
-
-        return command_func
-
-    return decorator
-
-
-# set the aliases with custom delays
-send_typing_action = send_action(
-    ChatAction.TYPING, delay=1
-)  # change the delay time as needed
-
-
-# function to create markup with specific number of buttons
-def generate_markup(num_buttons):
-    if num_buttons == 3:
-        # Return a markup with the first three buttons only
-        return InlineKeyboardMarkup(
-            [reply_markup[0][:num_buttons]] + [reply_markup[1][:1]]
-        )
-    else:
-        # return the full markup with all four buttons
-        return InlineKeyboardMarkup(reply_markup)
 
 
 # handler function for /start command
@@ -398,14 +350,14 @@ async def calculate_time_difference(update, context):
         )
     elif time_difference.total_seconds() > 0:
         difference_text = (
-            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-            + " hours behind"
+                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+                + " hours behind"
         )
         message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
     else:
         difference_text = (
-            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-            + " hours ahead"
+                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+                + " hours ahead"
         )
         message = (
             f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
@@ -413,77 +365,6 @@ async def calculate_time_difference(update, context):
     await update.message.reply_text(message)
     context.user_data[START_OVER] = True
     await start_conversation(update, context)
-
-
-# function to get timezone details
-# given a timezone name, return its offset from UTC and abbreviation
-def get_timezone_details(timezone_name):
-    timezone_offset = datetime.datetime.now(pytz.timezone(timezone_name)).strftime("%z")
-    timezone_offset_formatted = f"{timezone_offset[:-2]}:{timezone_offset[-2:]}"
-    timezone_abbr = (
-        pytz.timezone(timezone_name).localize(datetime.datetime.now()).strftime("%Z")
-    )
-    return timezone_abbr, timezone_offset_formatted
-
-
-# function to get timezone from location
-# given a city name, return its timezone name
-def get_timezone_from_location(city_name):
-    location = geolocator.geocode(city_name, timeout=10)
-    if location is None:
-        return None
-    tf = TimezoneFinder()
-    timezone_name = tf.timezone_at(lng=location.longitude, lat=location.latitude)
-    return timezone_name
-
-
-# get the appropriate suffix for a day of the month
-def get_day_suffix(day):
-    if 10 <= day % 100 <= 20:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-    return suffix
-
-
-# function to get the current UTC time in a timezone
-# given a timezone name, return the current UTC time
-def get_current_utc_time(timezone_name):
-    timezone = pytz.timezone(timezone_name)
-    current_datetime = timezone.localize(datetime.datetime.now())
-    utc_time = current_datetime.astimezone(pytz.utc)
-    return utc_time.replace(tzinfo=None)
-
-
-# function to get the current time in a timezone
-# given a timezone name, return the current time in the specified timezone as a formatted string
-def get_current_time_in_timezone(timezone_name):
-    timezone = pytz.timezone(timezone_name)
-    city_time = datetime.datetime.now(timezone).strftime("%H:%M:%S %d.%m.%Y")
-    return city_time
-
-
-def convert_time(source_time, initial_timezone, destination_timezone):
-    # parse the source time using a specific format
-    source_dt = datetime.datetime.strptime(source_time, "%I:%M %p")
-
-    # get the initial and destination timezones
-    initial_tz = pytz.timezone(initial_timezone)
-    destination_tz = pytz.timezone(destination_timezone)
-
-    # combine the source date with the source time
-    source_date = datetime.datetime.now().date()
-    source_dt = initial_tz.localize(
-        datetime.datetime.combine(source_date, source_dt.time())
-    )
-
-    # convert the source time to the destination timezone
-    destination_dt = source_dt.astimezone(destination_tz)
-
-    # format the destination time as a string with AM/PM indicator
-    destination_time = destination_dt.strftime("%I:%M %p")
-
-    return destination_time
 
 
 def main():
@@ -522,7 +403,3 @@ def main():
     )
     # start the Telegram bot
     application.run_polling()
-
-
-if __name__ == "__main__":
-    main()
