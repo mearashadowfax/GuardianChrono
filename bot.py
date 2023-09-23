@@ -252,7 +252,7 @@ async def handle_conversion(update, context):
     context.user_data["destination_city_name"] = user_input
     # ask user which time they want to convert from
     await update.message.reply_text(
-        "Please enter the time and the city you are converting from using the format 'HH:MM AM/PM City'"
+        "Please enter the time in 12-hour format (HH:MM AM/PM) and the city you are converting from, like '02:30 AM London'"
     )
     return TIME
 
@@ -351,14 +351,14 @@ async def calculate_time_difference(update, context):
         )
     elif time_difference.total_seconds() > 0:
         difference_text = (
-                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-                + " hours behind"
+            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+            + " hours behind"
         )
         message = f"The time in {city_name_2} is {difference_text} {city_name_1} time."
     else:
         difference_text = (
-                f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
-                + " hours ahead"
+            f"{Decimal(abs(time_difference_hours)):.2f}".replace(".", ":")
+            + " hours ahead"
         )
         message = (
             f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
