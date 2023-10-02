@@ -1,4 +1,4 @@
-FROM python
+FROM python:3.11-slim 
 LABEL description="A Telegram bot that simplifies global time tracking, synchronization, and conversion with ease"
 COPY main.py /main.py
 COPY bot.py /bot.py
