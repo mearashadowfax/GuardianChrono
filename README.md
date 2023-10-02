@@ -19,13 +19,13 @@ import os
 TELEGRAM_API_TOKEN = os.environ.get("TELEGRAM_API_TOKEN")
 ```
 <details>
-<summary>Native</summary>
+<summary>Native Installation</summary>
 
 5. Install the required dependencies using `pip install -r requirements.txt`
 6. Run the `main.py` script using `python3 main.py`
 </details>
 <details>
-<summary>Docker</summary>
+<summary>Docker Installation</summary>
 
 5. Build the Docker container using
 
@@ -39,7 +39,7 @@ docker run --mount type=bind,source="$(pwd)"/config.py,target=/config.py,readonl
 ```
 </details>
 <details>
-<summary>Docker Compose</summary>
+<summary>Docker Compose Installation</summary>
 
 5. Build and run the Docker container using
 
