@@ -5,5 +5,5 @@ COPY bot.py /bot.py
 COPY utils.py /utils.py
 COPY en_strings.json /en_strings.json
 COPY requirements.txt /requirements.txt
-RUN pip install -r /requirements.txt
+RUN pip3 install -r /requirements.txt
 ENTRYPOINT [ "python", "/main.py" ]
