@@ -21,7 +21,7 @@ TELEGRAM_API_TOKEN = os.environ.get("TELEGRAM_API_TOKEN")
 <details>
 <summary>Native Installation</summary>
 
-5. Install the required dependencies using `pip install -r requirements.txt`
+5. Install the required dependencies using `pip3 install -r requirements.txt`
 6. Run the `main.py` script using `python3 main.py`
 </details>
 <details>
