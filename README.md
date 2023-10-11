@@ -1,6 +1,6 @@
 # GuardianChrono Telegram Bot
 
-![GuardianChronoPoster](https://github.com/mearashadowfax/GuardianChrono/assets/125820963/47d384e7-8f8e-49bf-9b39-2b2ef1d4c486)
+![GuardianChronoPoster](https://github.com/mearashadowfax/GuardianChrono/assets/125820963/8d68ac0b-0553-403b-a72a-47059b79f433)
 
 GuardianChrono is a Telegram bot built with Python's python-telegram-bot library. It is designed to provide a range of useful time-related features, including obtaining the current time and timezone of any city, converting timezones, and calculating the time difference between cities. To use the bot, simply send a message with the name of a city you're interested in, and GuardianChrono will promptly respond with the current local time and timezone.
 
