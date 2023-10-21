@@ -15,6 +15,9 @@ TELEGRAM_API_TOKEN = YOUR_TELEGRAM_API_TOKEN
 4. Create a `config.py` file in the project directory. In your `config.py` file, import the `os` module and use `os.environ.get()` to access the environment variables:
 ```
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 TELEGRAM_API_TOKEN = os.environ.get("TELEGRAM_API_TOKEN")
 ```
