@@ -1,6 +1,6 @@
 # GuardianChrono Telegram Bot
 
-![GuardianChronoPoster](https://github.com/mearashadowfax/GuardianChrono/assets/125820963/47d384e7-8f8e-49bf-9b39-2b2ef1d4c486)
+![GuardianChronoPoster](https://github.com/mearashadowfax/GuardianChrono/assets/125820963/8d68ac0b-0553-403b-a72a-47059b79f433)
 
 GuardianChrono is a Telegram bot built with Python's python-telegram-bot library. It is designed to provide a range of useful time-related features, including obtaining the current time and timezone of any city, converting timezones, and calculating the time difference between cities. To use the bot, simply send a message with the name of a city you're interested in, and GuardianChrono will promptly respond with the current local time and timezone.
 
@@ -14,13 +14,13 @@ TELEGRAM_API_TOKEN = YOUR_TELEGRAM_API_TOKEN
 ```
 4. In your existing `config.py` file within the project directory, make sure to adjust the setup accordingly to load and use this environmental variable
 <details>
-<summary>Native</summary>
+<summary>Native Installation</summary>
 
-5. Install the required dependencies using `pip install -r requirements.txt`
+5. Install the required dependencies using `pip3 install -r requirements.txt`
 6. Run the `main.py` script using `python3 main.py`
 </details>
 <details>
-<summary>Docker</summary>
+<summary>Docker Installation</summary>
 
 5. Build the Docker container using
 
@@ -34,7 +34,7 @@ docker run --mount type=bind,source="$(pwd)"/config.py,target=/config.py,readonl
 ```
 </details>
 <details>
-<summary>Docker Compose</summary>
+<summary>Docker Compose Installation</summary>
 
 5. Build and run the Docker container using
 
