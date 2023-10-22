@@ -14,7 +14,7 @@ from timezonefinder import TimezoneFinder  # timezone lookup
 
 
 # define the send_action decorator
-def send_action(action, delay=1):
+def send_action(action, delay=0.5):
     def decorator(func):
         @wraps(func)
         async def command_func(update, context, *args, **kwargs):
@@ -46,7 +46,7 @@ markup = InlineKeyboardMarkup(reply_markup)
 
 # set the aliases with custom delays
 send_typing_action = send_action(
-    ChatAction.TYPING, delay=1
+    ChatAction.TYPING, delay=0.5
 )  # change the delay time as needed
 
 
@@ -60,6 +60,19 @@ def generate_markup(num_buttons):
     else:
         # return the full markup with all four buttons
         return InlineKeyboardMarkup(reply_markup)
+
+    # define the questions list globally
+
+
+questions = [
+    "How can I assist you? Check the time in cities, convert timezones, or compare time differences:",
+    "Convert time, check time in cities, or calculate time differences. What would you like?",
+    "Is there a specific city you'd like to know the time for, or do you have other questions in mind?",
+    "What's your next time-related request? Time in cities, timezone conversion, or time difference?",
+    "City time, timezone conversion, or time difference? Your choice:",
+    "Time in a city, timezone conversion, or time difference? Let me know:",
+    "Explore city time, timezone conversion, or time difference. What's your pick?",
+]
 
 
 # function to get timezone details

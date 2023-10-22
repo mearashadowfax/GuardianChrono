@@ -1,5 +1,4 @@
 # standard Library Imports
-import asyncio  # asynchronous programming support
 import json  # JSON serialization and deserialization
 import logging  # logging utility
 import datetime  # date and time manipulation
@@ -7,7 +6,6 @@ from decimal import Decimal  # decimal arithmetic
 import random  # random number generation
 
 # import the required Telegram modules
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     CommandHandler,
     ApplicationBuilder,
@@ -15,6 +13,7 @@ from telegram.ext import (
     MessageHandler,
     ConversationHandler,
     CallbackQueryHandler,
+    PicklePersistence,
 )
 
 # import the Telegram API token from config.py
@@ -29,17 +28,14 @@ from utils import (
     get_current_utc_time,
     get_current_time_in_timezone,
     convert_time,
+    questions,
 )
 
 # enable logging
 logging.basicConfig(level=logging.INFO)
 
-# declare a global variable to hold the timer object
-timeout_timer = None
-
 # declare constants for ConversationHandler
 CITY, NEW_CITY, CONVERSION, DIFFERENCE, TIME = range(5)
-START_OVER = "start_over"
 
 
 # handler function for /start command
@@ -47,88 +43,17 @@ async def start_conversation(update, context):
     with open("en_strings.json", "r") as f:
         strings = json.load(f)
 
-    # set conversation flag to True
-    context.user_data["conversation_active"] = True
-
-    # use the global keyword to access the global variable
-    global timeout_timer
-
-    # if we're starting over we don't need to send a welcome_message
-    if context.user_data.get(START_OVER):
-        questions = [
-            "How can I assist you? Check the time in cities, convert timezones, or compare time differences:",
-            "Convert time, check time in cities, or calculate time differences. What would you like?",
-            "Is there a specific city you'd like to know the time for, or do you have other questions in mind?",
-            "What's your next time-related request? Time in cities, timezone conversion, or time difference?",
-            "City time, timezone conversion, or time difference? Your choice:",
-            "Time in a city, timezone conversion, or time difference? Let me know:",
-            "Explore city time, timezone conversion, or time difference. What's your pick?",
-        ]
-        random_question = random.choice(questions)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=random_question,
-            reply_markup=generate_markup(4),
-        )
-    else:
         welcome_message = strings["welcome_message"]
         await update.message.reply_text(welcome_message, parse_mode="HTML")
         await update.message.reply_text("Please enter a city name:")
 
-    # reset the START_OVER flag to False
-    context.user_data[START_OVER] = False
-
-    # cancel any previous timeout timers and start a new one
-    if timeout_timer is not None:
-        timeout_timer.cancel()
-    timeout_timer = asyncio.create_task(timeout(update, context))
-    context.user_data["timeout_timer"] = timeout_timer
-
     return CITY
-
-
-async def timeout(update, context):
-    await asyncio.sleep(300.0)  # Wait for 300 seconds
-
-    # generate an inline keyboard with a button that starts a new conversation
-    button = InlineKeyboardButton(text="Start Over", callback_data="start_over")
-    keyboard = InlineKeyboardMarkup([[button]])
-
-    messages = [
-        "Sorry, it seems like our conversation timed out. Please tap below to start a new one.",
-        "It appears that your session has expired. Kindly tap below to initiate a new one.",
-        "It looks like our conversation has timed out. Tap the button below to start a new one.",
-    ]
-    random_message = random.choice(messages)
-    # send the message with the inline keyboard
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text=random_message, reply_markup=keyboard
-    )
-    # set conversation_active flag to False
-    context.user_data["conversation_active"] = False
-    # end conversation
-    return ConversationHandler.END
-
-
-async def start_conv_handler(update, context):
-    callback_query = update.callback_query
-    context.user_data.clear()
-    if callback_query.data == "start_over":
-        # set a flag to indicate that the conversation has been restarted
-        context.user_data[START_OVER] = True
-
-        # start a new conversation
-        await start_conversation(update, context)
-    await callback_query.answer()
 
 
 # send a typing indicator in the chat
 @send_typing_action
 # handler function for user input city name
 async def handle_city(update, context):
-    # check if conversation is still active
-    if not context.user_data.get("conversation_active"):
-        return
     # get user's city name input
     user_text = update.message.text
     # check if the user input is in all capital letters
@@ -173,9 +98,6 @@ async def handle_city(update, context):
 @send_typing_action
 # handler function for when 'New City' button is pressed
 async def handle_new_city(update, context):
-    # check if conversation is still active
-    if not context.user_data.get("conversation_active"):
-        return
     # get user's city name input
     user_text = update.message.text
     # check if the user input is in all capital letters
@@ -205,8 +127,11 @@ async def handle_new_city(update, context):
     reply1 = f"The time in {city_name} right now is {formatted_city_time}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
     reply2 = f"It's currently {formatted_city_time} in {city_name}. Timezone: {timezone_abbr} ({timezone_offset_formatted})"
     reply = random.choice([reply1, reply2])
-    await update.message.reply_text(
-        reply,
+    await update.message.reply_text(reply)
+    random_question = random.choice(questions)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=random_question,
         reply_markup=generate_markup(4),
     )
 
@@ -244,9 +169,6 @@ async def handle_callback_query(update, context):
 # send a typing indicator in the chat
 @send_typing_action
 async def handle_conversion(update, context):
-    # check if conversation is still active
-    if not context.user_data.get("conversation_active"):
-        return
     user_input = update.message.text
     # store user's city name
     context.user_data["destination_city_name"] = user_input
@@ -292,14 +214,15 @@ async def handle_time(update, context):
     await update.message.reply_text(
         f"The time in {destination_city_name} is {destination_time}."
     )
-    context.user_data[START_OVER] = True
-    await start_conversation(update, context)
+    random_question = random.choice(questions)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=random_question,
+        reply_markup=generate_markup(4),
+    )
 
 
 async def get_time_difference(update, context):
-    # check if conversation is still active
-    if not context.user_data.get("conversation_active"):
-        return
     # get user's city name input
     user_text = update.message.text
     # check if the user input is in all capital letters
@@ -364,13 +287,20 @@ async def calculate_time_difference(update, context):
             f"The time in {city_name_2} is {difference_text} of {city_name_1} time."
         )
     await update.message.reply_text(message)
-    context.user_data[START_OVER] = True
-    await start_conversation(update, context)
+    random_question = random.choice(questions)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=random_question,
+        reply_markup=generate_markup(4),
+    )
 
 
 def main():
     # set Telegram bot
-    application = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
+    persistence = PicklePersistence(filepath="conversationbot")
+    application = (
+        ApplicationBuilder().token(TELEGRAM_API_TOKEN).persistence(persistence).build()
+    )
 
     # create a conversation handler
     conv_handler = ConversationHandler(
@@ -391,16 +321,14 @@ def main():
         fallbacks=[
             CallbackQueryHandler(
                 handle_callback_query, pattern="^(conversion|difference|new_city|help)$"
-            ),
-            CommandHandler("timeout", timeout),
+            )
         ],
+        allow_reentry=True,
+        name="my_conversation",
+        persistent=True,
     )
     # add ConversationHandler to application that will be used for handling updates
     application.add_handler(conv_handler)
 
-    # add a callback query handler for when the user selects to start over
-    application.add_handler(
-        CallbackQueryHandler(start_conv_handler, pattern="^(start_over)$")
-    )
     # start the Telegram bot
     application.run_polling()

@@ -12,12 +12,7 @@ To get started with this project, follow these steps:
 ```
 TELEGRAM_API_TOKEN = YOUR_TELEGRAM_API_TOKEN
 ```
-4. Create a `config.py` file in the project directory. In your `config.py` file, import the `os` module and use `os.environ.get()` to access the environment variables:
-```
-import os
-
-TELEGRAM_API_TOKEN = os.environ.get("TELEGRAM_API_TOKEN")
-```
+4. In your existing `config.py` file within the project directory, make sure to adjust the setup accordingly to load and use this environmental variable
 <details>
 <summary>Native</summary>
 
