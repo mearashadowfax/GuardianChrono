@@ -9,7 +9,7 @@ To get started with this project, follow these steps:
 1. Create a new Telegram Bot and obtain a token following the [instructions](https://core.telegram.org/bots#how-do-i-create-a-bot)
 2. Clone this repository and navigate to the project directory
 3. Create a `.env` file in the project directory and define a variable named `TELEGRAM_API_TOKEN` with your Telegram Bot token. The contents of your `.env` file should look like this:
-```
+```python
 TELEGRAM_API_TOKEN = YOUR_TELEGRAM_API_TOKEN
 ```
 4. In your existing `config.py` file within the project directory, make sure to adjust the setup accordingly to load and use this environmental variable
@@ -24,12 +24,12 @@ TELEGRAM_API_TOKEN = YOUR_TELEGRAM_API_TOKEN
 
 5. Build the Docker container using
 
-```
+```console
 docker build -t guardian-chrono .
 ```
 6. Run the Docker container using the command
 
-```
+```console
 docker run --mount type=bind,source="$(pwd)"/config.py,target=/config.py,readonly guardian-chrono
 ```
 </details>
@@ -38,7 +38,7 @@ docker run --mount type=bind,source="$(pwd)"/config.py,target=/config.py,readonl
 
 5. Build and run the Docker container using
 
-```
+```console
 docker-compose up -d
 ```
 </details>
