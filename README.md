@@ -62,7 +62,7 @@ This Telegram bot offers the following features:
 
 To learn more about the bot's features, visit the bot at [GuardianChrono](https://t.me/GuardianChronoBot).
 ## Contributing
-If you'd like to contribute to this project, feel free to fork the repository and submit a pull request. You can also create an issue to report bugs or suggest new features.
+This project is archived and does not accept contributions. You are welcome to fork it for your own use.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/mearashadowfax/GuardianChrono/blob/main/LICENSE) file for details.
