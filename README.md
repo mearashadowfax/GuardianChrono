@@ -7,10 +7,11 @@ GuardianChrono is a Telegram bot built with Python's python-telegram-bot library
 > [!NOTE]
 > **Status: Feature-Complete**
 > 
-> GuardianChrono is considered a finished project. It works as intended for time tracking and timezone conversions, and no further development is planned.
+> GuardianChrono is considered a finished project. It works as intended for time tracking and timezone conversions, and no further development or maintenance is planned.
 >
-> Feel free to use it, fork it, or submit a Pull Request if you find a bug. While I am not actively building new features, the repository is open for community maintenance.
+> The repository is provided **as-is** for reference and personal use. You are welcome to **fork the project** if you wish to make modifications or continue development independently.
 > 
+
 ## Getting started
 To get started with this project, follow these steps:  
 1. Create a new Telegram Bot and obtain a token following the [instructions](https://core.telegram.org/bots#how-do-i-create-a-bot)
